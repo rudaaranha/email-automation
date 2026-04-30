@@ -85,7 +85,7 @@ class TestEmailRequest(BaseModel):
 # Response models
 
 
-class ActivityResonse(BaseModel):
+class ActivityResponse(BaseModel):
     '''
     Modelo de atividade para resposta de API
 
@@ -98,14 +98,13 @@ class ActivityResonse(BaseModel):
         default=None,
         description="Email do responsável"
     )
-    data_inicio = Optional[date] = Field(description="Data de Inicio")
-    data_fim = Optional[date] = Field(description="Data de entrega")
+    data_inicio: Optional[date] = Field(default=None, description="Data de início")
+    data_fim: Optional[date] = Field(default=None, description="Data de entrega") 
     status: ActivityStatus = Field(description="Status atual")
-    dias_atraso = int = Field(
+    dias_atraso: int = Field(
         default=0, 
-        description="Número de dias de atraso"
+        description="Dias em atraso"
     )
-
     project: str = Field(description="Nome do Projeto")
 
 class Config:
@@ -173,7 +172,7 @@ class StatusResponse(BaseModel):
 
     # Configurações ativas
     test_mode: bool = Field(description="Se está em modo de teste")
-    configured_projects = List[str] = Field(description="Horários agendados")
+    configured_projects: List[str] = Field(description="Horários agendados")
 
     # Estatísticas
     total_alerts_sent_today: int = Field(default=0)
@@ -203,14 +202,14 @@ class RawActivity(BaseModel):
     atividade: str
     responsavel_raw: str
     data_inicio: Optional[date]
-    date_fim: Optional[date]
+    data_fim: Optional[date]
     status_raw: str
     project_id: str
     project_man: str
 
-    @field_validator('atividade', 'resposnvavel_raw')
+    @field_validator('atividade', 'responsavel_raw')
     @classmethod
-    def not_empty(cls, v:str) -> str:
+    def not_empty(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError("Campo não pode vazio")
         return v.strip()
