@@ -141,7 +141,7 @@ class ExecuteResponse(BaseModel):
     Retorna Estatísticas de execução
     """
 
-    sucess: bool = Field(description="Se a execução foi bem sucedida")
+    success: bool = Field(description="Se a execução foi bem sucedida")
     timestamp: datetime = Field(description="Momento da execução")
     mode: ExecutionMode = Field(description="Modo de execução usado")
 
