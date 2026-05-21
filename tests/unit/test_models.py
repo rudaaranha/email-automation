@@ -1,7 +1,7 @@
 """
 Teste unitários do models.py
 
-Esses testes buscam validas: 
+Esses testes buscam validar: 
 - Validação de dados (campos obrigatórios, tipos e formatos)
 - Validações customizadas (@field_validator)
 - Conversão de dados (to/from JSON)
@@ -9,7 +9,7 @@ Esses testes buscam validas:
 """
 
 import pytest
-from datetime import datetime, date
+from datetime import date, datetime
 from pydantic import ValidationError
 
 from src.models import ExecuteRequest, TestEmailRequest, ActivityResponse
