@@ -1,10 +1,10 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from datetime import date, datetime
+from datetime import datetime, date
 from typing import Dict, List, Optional, Any
 from dateutil.parser import parse
 import re
-from config import Config
+from src.config import Config
 
 class SpreadsheetManager:
     def __init__(self, config: Config = None):
@@ -68,11 +68,11 @@ class SpreadsheetManager:
         if not valor:
             return None
         
-        if isinstance(valor, date):
-            return valor
-        
         if isinstance(valor, datetime):
             return valor.date()
+        
+        if isinstance(valor, date):
+            return valor
         
         if isinstance(valor, str):
             date_str = valor.strip()
