@@ -1,22 +1,22 @@
 """
-Teste unitários do models.py
+Unit tests of test_models.py
 
-Esses testes buscam validar: 
-- Validação de dados (campos obrigatórios, tipos e formatos)
-- Validações customizadas (@field_validator)
-- Conversão de dados (to/from JSON)
-- Enums e valores permidos
+These tests will validate:  
+- data (required fields, types and formats)
+- Custom validations (@field_validator)
+- Data convertion (to/from JSON)
+- Enums and allowed values
 """
 
 import pytest
-from datetime import date, datetime
+from datetime import datetime, date
 from pydantic import ValidationError
 
 from src.models import ExecuteRequest, TestEmailRequest, ActivityResponse
     
 
 class TestExecuteRequest:
-    """Testa o modelo de requisição POST/execute"""
+    """Tests the model of POST/execute requisition"""
     
     def test_project_normalization(self):
         req = ExecuteRequest(project="  SENSOR_DIABETES  ")
@@ -32,7 +32,7 @@ class TestExecuteRequest:
 
 
 class TestEmailValidation:
-    """Teste para garantir que o email é válido"""
+    """Tests to validate email"""
 
     def test_valid_email_accepted(self):
         req = TestEmailRequest(to_email="teste@lab.com")
@@ -44,7 +44,7 @@ class TestEmailValidation:
 
 
 class TestActivityResponse:
-    """Verifica campos obrigatórios"""
+    """Verify required fields"""
 
     def test_required_fields(self):
         activity = ActivityResponse(
