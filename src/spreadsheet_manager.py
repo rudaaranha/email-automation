@@ -209,6 +209,12 @@ class SpreadsheetManager:
             key = self._normalize_name(key)
             value = value.strip().lower()
 
+            if not key:
+                continue
+
+            if not value:
+                continue
+
             if '@' in value and len(value.split('@')) == 2:
                 researchers[key] = value
             else:
