@@ -161,7 +161,7 @@ class SpreadsheetManager:
         return cleaned_data
 
 
-    def load_reseachers(self, spreadsheet_id: str, force_reload: bool = False):
+    def load_researchers(self, spreadsheet_id: str, force_reload: bool = False):
         """
         Lê a aba pesquisadores e cria um dicionário com nomes e emails
     
