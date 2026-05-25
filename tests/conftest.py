@@ -68,6 +68,7 @@ def mock_google_client():
     # Configuração dos métodos que serão usados
     mock.open_by_key = Mock()
     mock.open_by_key.return_value = Mock()
+    return mock
 
 
 @pytest.fixture
