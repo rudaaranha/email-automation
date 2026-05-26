@@ -451,3 +451,8 @@ class TestLoadActivities:
         assert activity4 is not None, "Atividade 'Atividade sem prazo' não encontrada"
         assert activity4["dias_atraso"] == 0, f"Esperado 0, obteve {activity4['dias_atraso']}"
         assert activity4["data_fim"] is None, f"Esperado None, obteve {activity4['data_fim']}"
+
+        # Activity min number lines verification
+        for activity in result:
+            assert "linha" in activity
+            assert activity["linha"] >= 2
