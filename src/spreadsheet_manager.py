@@ -277,7 +277,7 @@ class SpreadsheetManager:
 
             # Cálculo dos dias de atraso
             days_delayed = 0
-            if end_date and status != "Concluídas":
+            if end_date and status != "Concluída":
                 if end_date < today:
                     days_delayed = (today - end_date).days
 
