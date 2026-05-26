@@ -9,6 +9,7 @@ from datetime import datetime, date
 from src.spreadsheet_manager import SpreadsheetManager
 from src.config import Config
 from unittest.mock import Mock
+from freezegun import freeze_time
 
 
 class TestNormalizeName:
@@ -235,7 +236,7 @@ class TestLoadResearchers:
         # substituindo o client real pelo mock
         spreadsheet_manager.client = mock_client
 
-        result = spreadsheet_manager.load_researchers("id_falso")
+        result = spreadsheet_manager.load_researchers("fake_id")
 
         assert len(result) == 3
         assert result["JOÃO SILVA"] == "joaos@mail.com"
@@ -266,7 +267,7 @@ class TestLoadResearchers:
         
         spreadsheet_manager.client = mock_client
         
-        result = spreadsheet_manager.load_researchers("id_falso")
+        result = spreadsheet_manager.load_researchers("fake_id")
         
         # Apenas 2 linhas válidas (João e Maria) devem estar no resultado
         assert len(result) == 2
@@ -354,4 +355,99 @@ class TestLoadResearchers:
         assert len(result2) == 1
 
 class TestLoadActivities:
-    pass
+    """Test for method load_researchers"""
+
+    fake_activities_data = [
+        {
+            "DEMANDA": "Reunião inicial", 
+            "DIA INICIO": "2026-04-02",
+            "DIA DE TÉRMINO": "2026-04-02",
+            "SITUAÇÃO": "Concluída",
+            "RESPONSÁVEL": "TODOS"
+        },
+        {
+            "DEMANDA": "Seleção pareada", 
+            "DIA INICIO": "2026-04-08",
+            "DIA DE TÉRMINO": "2026-04-14",
+            "SITUAÇÃO": "Andamento",
+            "RESPONSÁVEL": "João\nAna Carolina\nAugusto"
+        },
+        {
+            "DEMANDA": "Extração de dados", 
+            "DIA INICIO": "2026-04-01",
+            "DIA DE TÉRMINO": "2026-04-05",
+            "SITUAÇÃO": "Pendente",
+            "RESPONSÁVEL": "ANA CAROLINA"
+        },
+        {
+            "DEMANDA": "Atividade sem prazo", 
+            "DIA INICIO": "2026-04-01",
+            "DIA DE TÉRMINO": "",
+            "SITUAÇÃO": "Pendente",
+            "RESPONSÁVEL": "João"
+        },
+        {
+            "DEMANDA": "", 
+            "DIA INICIO": "2026-04-01",
+            "DIA DE TÉRMINO": "2026-04-05",
+            "SITUAÇÃO": "Pendente",
+            "RESPONSÁVEL": "IGNORADO"
+        },
+    ]
+
+    
+    @freeze_time("2026-04-10")
+    def test_load_activities_success(self, spreadsheet_manager):
+        """
+        Test successful loading of activities with date parsing and delay calculation
+
+        Uses mock_today_date = 2026-04-10 to calculate delays
+        """
+
+        # Mocks creation
+        mock_worksheet = Mock()
+        mock_spreadsheet = Mock()
+        mock_client = Mock()
+
+        # Mocks configuration
+        mock_worksheet.get_all_records.return_value = self.fake_activities_data
+        mock_spreadsheet.worksheet.return_value = mock_worksheet
+        mock_client.open_by_key.return_value = mock_spreadsheet
+
+        # Replace the real client for mock client
+        spreadsheet_manager.client = mock_client
+
+        result = spreadsheet_manager.load_activities("fake_id")
+       
+        # Verifications
+        # 1. Number of activities (5 lines, 1 without name = 4 activities)
+        assert len(result) == 4, f"Esperado 4 atividades, mas obteve {len(result)}"
+
+        # Find every activity with the name
+        activity1 = next((a for a in result if a["atividade"] == "Reunião inicial"), None)
+        activity2 = next((a for a in result if a["atividade"] == "Seleção pareada"), None)
+        activity3 = next((a for a in result if a["atividade"] == "Extração de dados"), None)
+        activity4 = next((a for a in result if a["atividade"] == "Atividade sem prazo"), None)
+        
+        # Activity completed verification
+        assert activity1 is not None, "Atividade 'Reunião inicial' não encontrada"
+        assert activity1["status"] == 'Concluída'
+        assert activity1["dias_atraso"] == 0, f"Esperado 0, obteve {activity1['dias_atraso']}"
+        assert activity1["data_fim"] == date(2026, 4, 2)
+        
+        # Activity in progress verification
+        assert activity2 is not None, "Atividade 'Seleção pareada' não encontrada"
+        assert activity2["status"] == 'Andamento'
+        assert activity2["dias_atraso"] == 0, f"Esperado 0, obteve {activity2['dias_atraso']}"
+        assert activity2["data_fim"] == date(2026, 4, 14)
+
+        # Late activity verification
+        assert activity3 is not None, "Atividade 'Extração de dados' não encontrada"
+        assert activity3["status"] == 'Pendente'
+        assert activity3["dias_atraso"] == 5, f"Esperado 5, obteve {activity3['dias_atraso']}"
+        assert activity3["data_fim"] == date(2026, 4, 5)
+
+        # Activity without end date verification
+        assert activity4 is not None, "Atividade 'Atividade sem prazo' não encontrada"
+        assert activity4["dias_atraso"] == 0, f"Esperado 0, obteve {activity4['dias_atraso']}"
+        assert activity4["data_fim"] is None, f"Esperado None, obteve {activity4['data_fim']}"
