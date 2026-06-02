@@ -1,6 +1,6 @@
 """
-"banco de templates" que contém apenas os textos HTML dos emails. Ele não envia emails, não tem lógica de negócio, 
-não acessa banco de dados. Só devolve strings HTML prontas para serem enviadas.
+"template repository" that contains only the raw HTML of the emails. It doesn't send emails, 
+has no business logic, and doesn't access the database. It just returns HTML strings ready to be sent.
 """
 
 from datetime import datetime
