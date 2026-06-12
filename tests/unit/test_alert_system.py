@@ -172,7 +172,7 @@ class TestAlertSystem:
         
         activity = {
             "atividade": "Seleção pareada",
-            "status": "Pendente",
+            "status": "Não iniciada",
             "data_inicio": today,
             "data_fim": date(2026, 4, 20),
             "responsavel_raw": "ALDENORA\nANA CAROLINA\nBÁRBARA"
@@ -202,7 +202,7 @@ class TestAlertSystem:
         
         activity = {
             "atividade": "Atividade teste",
-            "status": "Pendente",
+            "status": "Não iniciada",
             "data_inicio": today,
             "data_fim": date(2026, 4, 20),
             "responsavel_raw": "JOÃO\nMARIA"
@@ -227,7 +227,7 @@ class TestAlertSystem:
         
         activity = {
             "atividade": "Atividade sem responsável",
-            "status": "Pendente",
+            "status": "Não iniciada",
             "data_inicio": today,
             "data_fim": date(2026, 4, 20),
             "responsavel_raw": ""
@@ -385,14 +385,14 @@ class TestAlertSystemIntegration:
         alert_system.spreadsheet_manager.load_activities = Mock(return_value=[
             {
                 "atividade": "Atividade para iniciar",
-                "status": "Pendente",
+                "status": "Não iniciada",
                 "data_inicio": date.today(),
                 "data_fim": date.today(),
                 "responsavel_raw": "JOÃO"
             },
             {
                 "atividade": "Atividade atrasada",
-                "status": "Pendente",
+                "status": "Não iniciada",
                 "data_inicio": date(2026, 4, 1),
                 "data_fim": date(2026, 4, 5),
                 "responsavel_raw": "MARIA"
