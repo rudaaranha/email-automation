@@ -376,21 +376,21 @@ class TestLoadActivities:
             "DEMANDA": "Extração de dados", 
             "DIA INICIO": "2026-04-01",
             "DIA DE TÉRMINO": "2026-04-05",
-            "SITUAÇÃO": "Pendente",
+            "SITUAÇÃO": "Não iniciada",
             "RESPONSÁVEL": "ANA CAROLINA"
         },
         {
             "DEMANDA": "Atividade sem prazo", 
             "DIA INICIO": "2026-04-01",
             "DIA DE TÉRMINO": "",
-            "SITUAÇÃO": "Pendente",
+            "SITUAÇÃO": "Não iniciada",
             "RESPONSÁVEL": "João"
         },
         {
             "DEMANDA": "", 
             "DIA INICIO": "2026-04-01",
             "DIA DE TÉRMINO": "2026-04-05",
-            "SITUAÇÃO": "Pendente",
+            "SITUAÇÃO": "Não iniciada",
             "RESPONSÁVEL": "IGNORADO"
         },
     ]
@@ -443,7 +443,7 @@ class TestLoadActivities:
 
         # Late activity verification
         assert activity3 is not None, "Atividade 'Extração de dados' não encontrada"
-        assert activity3["status"] == 'Pendente'
+        assert activity3["status"] == 'Não iniciada'
         assert activity3["dias_atraso"] == 5, f"Esperado 5, obteve {activity3['dias_atraso']}"
         assert activity3["data_fim"] == date(2026, 4, 5)
 
