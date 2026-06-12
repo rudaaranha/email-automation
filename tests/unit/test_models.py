@@ -49,7 +49,7 @@ class TestActivityResponse:
     def test_required_fields(self):
         activity = ActivityResponse(
             id=1, nome="Teste", responsavel="João",
-            status="Pendente", project="teste"
+            status="Não iniciada", project="teste"
         )
         assert activity.id == 1
         assert activity.nome == "Teste"

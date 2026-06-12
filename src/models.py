@@ -21,7 +21,7 @@ class AlertType(str, Enum):
 
 class ActivityStatus(str, Enum):
     """Possíveis status de uma atividade"""
-    PENDENTE = "Pendente"
+    PENDENTE = "Não iniciada"
     ANDAMENTO = "Andamento"
     CONCLUIDA = "Concluida"
     ATRASADA = "Atrasada"
