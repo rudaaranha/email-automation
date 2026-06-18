@@ -110,7 +110,7 @@ class SpreadsheetManager:
         if not responsibles:
             return []
         
-        separators = [" e ", ","]
+        separators = [" e ", ",", ";", "|", "\n"]
 
         for separator in separators:
             responsibles = responsibles.replace(separator, "\n")
@@ -264,6 +264,8 @@ class SpreadsheetManager:
             start_date_raw = row.get(self.config.COLUMNS['data_inicio'], "")
             end_date_raw = row.get(self.config.COLUMNS['data_fim'], "")
             status = row.get(self.config.COLUMNS['status'], "")
+            if not status:
+                status = "Não iniciada"
             responsible_raw = row.get(self.config.COLUMNS['responsavel'], "")
 
 
@@ -285,7 +287,7 @@ class SpreadsheetManager:
             activity = {
                 "linha": i,
                 "atividade": activity_name,
-                "responsavel": responsible_raw,
+                "responsavel_raw": responsible_raw,
                 "data_inicio": start_date,
                 "data_fim": end_date,
                 "status": status,
