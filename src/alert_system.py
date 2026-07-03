@@ -174,10 +174,10 @@ class AlertSystem:
         if not responsible_emails:
             return
         
-        # Check for COMPLETION alert (status changed to "Concluídas")
+        # Check for COMPLETION alert (status changed to "Concluída")
         # Note: In a real system, you'd track previous status
-        # For now, we just check if current status is "Concluídas"
-        if status == "Concluídas":
+        # For now, we just check if current status is "Concluída"
+        if status == "Concluída":
             self._send_completion_alerts(responsible_emails, activity_name, project_name)
         
         # Check for START alert (start_date == today)
@@ -191,7 +191,7 @@ class AlertSystem:
             )
         
         # Check for DELAY alert (end_date < today and not completed)
-        elif end_date and end_date < today and status != "Concluídas":
+        elif end_date and end_date < today and status != "Concluída":
             days_delayed = (today - end_date).days
             end_date_str = end_date.strftime("%d/%m/%Y")
             
