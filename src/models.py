@@ -23,7 +23,7 @@ class ActivityStatus(str, Enum):
     """Possíveis status de uma atividade"""
     PENDENTE = "Não iniciada"
     ANDAMENTO = "Andamento"
-    CONCLUIDA = "Concluida"
+    CONCLUIDA = "Concluída"
     ATRASADA = "Atrasada"
 
 class ExecutionMode(str, Enum):
@@ -167,12 +167,13 @@ class StatusResponse(BaseModel):
     """
     system: str = Field(default="Sistema de Alertas de Atividades")
     version: str = Field(default="1.0.0")
-    status: str =Field(description="'healthy' ou 'unhealthy'")
+    status: str = Field(description="'healthy' ou 'unhealthy'")
     timestamp: datetime = Field(description="Momento de consulta")
 
     # Configurações ativas
     test_mode: bool = Field(description="Se está em modo de teste")
     configured_projects: List[str] = Field(description="Horários agendados")
+    execution_hours: List[str] = Field(description="Horários de execução")
 
     # Estatísticas
     total_alerts_sent_today: int = Field(default=0)
