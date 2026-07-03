@@ -1,25 +1,45 @@
-schedule==1.2.2
+# ============================================
+# CORE DEPENDENCIES
+# ============================================
 
-# Core
+# Environment variables
+python-dotenv==0.9.9
+
+# Google Sheets API
 gspread==6.2.1
 oauth2client==4.1.3
-python-dotenv==0.9.9
-google-auth==
-google-auth-oauthlib==
+google-auth==2.49.2
+google-auth-oauthlib==1.3.1
 
-# Data processing
-pandas==3.0.1
+# ============================================
+# DATA PROCESSING
+# ============================================
+
+# Date parsing and data manipulation
 python-dateutil==2.9.0.post0
+pandas==3.0.1
 
-# Web framework (para deploy)
+# ============================================
+# WEB FRAMEWORK (FastAPI)
+# ============================================
+
 fastapi==0.135.3
 uvicorn[standard]==0.44.0
+pydantic[email]==2.5.0
+email-validator==2.3.0
+httpx==0.25.0 
 
-# Cloud
-google-cloud-run==
-google-cloud-scheduler==
+# ============================================
+# SCHEDULING
+# ============================================
 
-# Testing
-pytest==
-pytest-cov==
-pytest-mock==
+schedule==1.2.2
+
+#============================================
+# TESTING
+# ============================================
+
+pytest==9.0.3
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+ 
