@@ -1,58 +1,148 @@
-import os
-from dotenv import load_dotenv
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime
-import smtplib
-from email.message import EmailMessage
+"""
+Main entry point for the FastAPI application.
 
-# Carrega o arquivo .env
-load_dotenv()
+This module creates and configures the FastAPI application,
+includes all routers, and provides a function to run the server.
 
-EMAIL_LAB = os.getenv("EMAIL_LAB")
-SENHA_APP = os.getenv("SENHA_APP_LAB")
-
-# IDs das Planilhas usadas nos projetos
-PLANILHAS = [
-    os.getenv("ID_PLANILHA_SENSOR_DIABETES")
-]
-
-PROJETO = os.path.dirname(os.path.abspath(__file__))
-CAMINHO_JSON = os.path.join(PROJETO, 'credenciais.json')
-
-# Função para verificar as planilhas
-def verificar_planilhas(client, spreadsheet_id):
-    if not spreadsheet_id:
-        return
-
-    try:
-        planilha = client.open_by_key(spreadsheet_id)
-        print(f"\n--- Processando: {planilha.title} ---")
-
-        aba_tarefas = planilha.worksheet("ENTREGA DE ATIVIDADES")
-        aba_contatos = planilha.worksheet("PESQUISADORES")
-
-        # get_all_records transforma a primeira linha da planilha em chaves dict
-        tarefas = aba_tarefas.get_all_records()
-        contatos = {row['Responsável']: row['E-mail'] for row in aba_contatos.get_all_records()}
-
-        hoje = datetime.now().date()
-
-        for tarefa in tarefas:
-            pass
+Usage:
+    uvicorn main:app --reload
     
-    except Exception as e:
-        print(f"Erro ao acessar Planilha {spreadsheet_id}: {e}")
+    Or directly:
+    python main.py
+"""
 
-# Definição do escopo de acesso ao Drive e Planilhas
-SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-
-# Carrega as credenciais do arquivo JSON gerado no Google Cloud Console
-CREDS = ServiceAccountCredentials.from_json_keyfile_name('credenciais.json', SCOPE)
-CLIENTE = gspread.authorize(CREDS)
-
+from fastapi import FastAPI
+from src.api import router
+from src.dependencies import get_alert_system, is_ready
+from src.models import HealthResponse
 
 
-# Função para enviar os emails
+# ============================================
+# CREATE APPLICATION
+# ============================================
+
+def create_app() -> FastAPI:
+    """
+    Create and configure the FastAPI application.
+    
+    Returns:
+        FastAPI: Configured application instance
+    """
+    app = FastAPI(
+        title="Sistema de Alertas de Atividades",
+        description="""
+        API para monitoramento de atividades em planilhas Google Sheets.
+        
+        Funcionalidades:
+        - Leitura automática de planilhas
+        - Disparo de alertas por email
+        - Suporte a múltiplos projetos
+        - Modo de teste para validação
+        """,
+        version="1.0.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        contact={
+            "name": "NATS - Núcleo de Avaliação de Tecnologias em Saúde",
+            "email": "seuemail@exemplo.com",
+        },
+        license_info={
+            "name": "MIT"
+        },
+    )
+
+    
+    # Include the API router
+    app.include_router(router)
+    
+    # ============================================
+    # ROOT ENDPOINT
+    # ============================================
+    
+    @app.get("/", tags=["Root"])
+    async def root():
+        """
+        Root endpoint - returns basic system information.
+        
+        This is a simple welcome endpoint that shows the API is running.
+        """
+        return {
+            "name": "Sistema de Alertas de Atividades",
+            "version": "1.0.0",
+            "docs": "/docs",
+            "status": "online"
+        }
+    
+    # ============================================
+    # HEALTH CHECK (without prefix)
+    # ============================================
+    
+    @app.get("/health", response_model=HealthResponse, tags=["Health"])
+    async def health_check():
+        """
+        Health check endpoint for Cloud Run and monitoring tools.
+        """
+        # Check if system is initialized
+        if not is_ready():
+            return HealthResponse(
+                status="degraded",
+                google_sheets_api=False,
+                smtp_configured=False,
+                sheets_accessible=[]
+            )
+        
+        # Get alert system to check connections
+        alert_system = get_alert_system()
+        
+        # Check Google Sheets accessibility
+        sheets_accessible = []
+        google_sheets_ok = True
+        
+        try:
+            for project_name, sheet_id in alert_system.config.SPREADSHEETS.items():
+                if sheet_id:
+                    try:
+                        alert_system.spreadsheet_manager.client.open_by_key(sheet_id)
+                        sheets_accessible.append(project_name)
+                    except Exception:
+                        google_sheets_ok = False
+        except Exception:
+            google_sheets_ok = False
+        
+        # Check SMTP configuration
+        smtp_ok = (
+            alert_system.config.EMAIL_NATS is not None and
+            alert_system.config.SENHA_APP_NATS is not None
+        )
+        
+        status = "ok" if (google_sheets_ok and smtp_ok) else "degraded"
+        
+        return HealthResponse(
+            status=status,
+            google_sheets_api=google_sheets_ok,
+            smtp_configured=smtp_ok,
+            sheets_accessible=sheets_accessible
+        )
+    
+    return app
 
 
+# ============================================
+# CREATE APPLICATION INSTANCE
+# ============================================
+
+app = create_app()
+
+
+# ============================================
+# RUN SERVER (development only)
+# ============================================
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )
