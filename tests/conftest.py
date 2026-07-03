@@ -30,18 +30,18 @@ def google_client(config):
         pytest.skip(f'Erro na conexão: {e}')
 
 
-@pytest.fixture
-def app():
-    """Fixture para aplicação FastAPI"""
-    from src.api import create_app
-    return create_app() 
+# @pytest.fixture
+# def app():
+#     """Fixture para aplicação FastAPI"""
+#     from src.api import create_app
+#     return create_app() 
 
 
-@pytest.fixture
-def client(app):
-    """Fixture para clinte de test HTTP"""
-    from fastapi.testclient import TestClient
-    return TestClient(app)
+# @pytest.fixture
+# def client(app):
+#     """Fixture para clinte de test HTTP"""
+#     from fastapi.testclient import TestClient
+#     return TestClient(app)
 
 @pytest.fixture
 def alert_system(config):
@@ -115,21 +115,21 @@ def sample_activities_data():
             "DEMANDA": "Extração de dados",
             "DIA INICIO": "2026-04-01",
             "DIA DE TÉRMINO": "2026-04-05",
-            "SITUAÇÃO": "Pendente",
+            "SITUAÇÃO": "Não iniciada",
             "RESPONSÁVEL": "MÔNICA"
         },
         {
             "DEMANDA": "Atividade sem data fim",
             "DIA INICIO": "2026-04-01",
             "DIA DE TÉRMINO": "",
-            "SITUAÇÃO": "Pendente",
+            "SITUAÇÃO": "Não iniciada",
             "RESPONSÁVEL": "JOSÉ"
         },
         {
             "DEMANDA": "",  # Nome vazio - deve ser ignorado
             "DIA INICIO": "2026-04-01",
             "DIA DE TÉRMINO": "2026-04-05",
-            "SITUAÇÃO": "Pendente",
+            "SITUAÇÃO": "Não iniciada",
             "RESPONSÁVEL": "IGNORADO"
         }
     ]
