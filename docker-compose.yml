@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  alert-system:
+    build: .
+    container_name: alert-system
+    ports:
+      - "8080:8080"
+    environment:
+      - TEST_MODE=False
+    volumes:
+      # Monta credenciais e .env (para desenvolvimento)
+      - ./credenciais.json:/app/credenciais.json:ro
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
