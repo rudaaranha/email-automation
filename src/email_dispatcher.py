@@ -101,7 +101,7 @@ class EmailDispatcher():
         Returns:
             True if email was sent successfully, False otherwise
         """
-        subject = f"[ALERT] Start Activity: {activity_name} - {project_name}"
+        subject = f"[ALERTA] Atividade Iniciada: {activity_name} - {project_name}"
 
         html_body = self.templates.alert_start(
             responsible_name=responsible_name,
@@ -130,7 +130,7 @@ class EmailDispatcher():
         Returns:
             True if email was sent successfully, False otherwise
         """
-        subject = f"[URGENT] Delayed Activity: {activity_name} - {project_name}"
+        subject = f"[URGENTE] Atividade Atrasada: {activity_name} - {project_name}"
 
         html_body = self.templates.alert_delay(
             responsible_name=responsible_name,
@@ -156,7 +156,7 @@ class EmailDispatcher():
         Returns:
             True if email was sent successfully, False otherwise
         """
-        subject = f"[CONGRATULATIONS] Activity Completed: {activity_name} - {project_name}"
+        subject = f"[PARABÉNS] Atividade Concluída: {activity_name} - {project_name}"
         
         html_body = self.templates.alert_completion(
             responsible_name=responsible_name,
@@ -181,7 +181,7 @@ class EmailDispatcher():
         Returns:
             True if email was sent successfully, False otherwise
         """
-        subject = f"[DAILY REPORT] Activities Summary - {project_name}"
+        subject = f"[RELATÓRIO DIÁRIO] Reumo de Atividades - {project_name}"
         
         html_body = self.templates.daily_report(
             activities_to_start=activities_to_start,
