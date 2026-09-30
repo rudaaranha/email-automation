@@ -7,6 +7,8 @@ from unittest.mock import Mock, patch
 
 os.environ["TEST_MODE"] = "True"
 os.environ["EMAIL_NATS"] = "teste@email.com"
+os.environ["SPREADSHEET_ID_CONTROL"] = "control_spreadsheet_test"
+
 
 # Adiciona o caminho do projeto para todos os testes
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))

@@ -55,16 +55,24 @@ class TestConfig:
     def additional_config_tests(self, config):
         """Verificação de outras configurações importantes"""
         
-        # Configurações de alerta
-        assert config.RESENDING_DAYS_DELAY == 3, f'O reenvio deveria ser 3, mas é {config.RESENDING_DAYS_DELAY}'
 
         # Execution time
-        assert len(config.EXECUTION_HOUR) ==2, f'Deveriam ser 2 horários, mas é/são {config.EXECUTION_HOUR}'
+        assert len(config.EXECUTION_HOUR) == 2
         assert "09:00" in config.EXECUTION_HOUR
         assert "14:00" in config.EXECUTION_HOUR
 
         # Test mode
         assert isinstance(config.TEST_MODE, bool)
+
+
+    @pytest.mark.unit
+    def test_control_spreadsheet_is_separate(self, config):
+        """Verifica se a planilha de controle não é tratada como projeto"""
+
+        assert config.CONTROL_SPREADSHEET_ID == "control_spreadsheet_test"
+        assert isinstance(config.CONTROL_SPREADSHEET_ID, str)
+        assert len(config.CONTROL_SPREADSHEET_ID) > 0
+        assert "control" not in config.SPREADSHEETS
 
 
 if __name__ == "__main__":

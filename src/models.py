@@ -19,12 +19,14 @@ class AlertType(str, Enum):
     FALTA_3_DIAS = "falta_3_dias"
     FALTA_1_DIA = "falta_1_dia"
 
+
 class ActivityStatus(str, Enum):
     """Possíveis status de uma atividade"""
     PENDENTE = "Não iniciada"
     ANDAMENTO = "Andamento"
     CONCLUIDA = "Concluída"
     ATRASADA = "Atrasada"
+
 
 class ExecutionMode(str, Enum):
     """Modo de execução do sistema"""
@@ -108,6 +110,7 @@ class ActivityResponse(BaseModel):
     )
     project: str = Field(description="Nome do Projeto")
 
+
 class Config:
     """Configuração adicional do modelo"""
     json_chema_extra = {
@@ -161,6 +164,7 @@ class ExecuteResponse(BaseModel):
         description="Detalhes adicionais da execução"
     )
 
+
 class StatusResponse(BaseModel):
     """
     Resposta para GET/status
@@ -192,8 +196,29 @@ class HealthResponse(BaseModel):
     smtp_configured: bool = Field(description="Se SMTP está configurado")
     sheets_accessible: List[str] = Field(description="Planilhas acessíveis")
 
+
 # Internal Models (para uso interno do sistema)
 
+class AlertHistory(BaseModel):
+    """Registro de um alerta enviado pelo sistema"""
+
+    project: str
+    activity: str
+    researcher: str
+    email: EmailStr
+    alert_type: AlertType
+    sent_at: datetime = Field(default_factory=datetime.now)
+    reference_date: Optional[date] = None
+
+
+class ProjectState(BaseModel):
+    """Estado de processamento de uma planilha/projeto"""     
+    project: str
+    spreadsheet_id: str
+    active: bool = True
+    completed_at: Optional[datetime] = None
+
+    
 class RawActivity(BaseModel):
     """
     Modelo interno para atividade sem tratamento vindo da planilha

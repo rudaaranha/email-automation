@@ -9,9 +9,11 @@ class Config:
     SENHA_APP_NATS = os.getenv("PASSWORD_APP_NATS")
 
     # Planilhas
+    CONTROL_SPREADSHEET_ID = os.getenv("SPREADSHEET_ID_CONTROL")
+
     SPREADSHEETS = {}
     for key, value in os.environ.items():
-        if key.startswith("SPREADSHEET_ID_"):
+        if key.startswith("SPREADSHEET_ID_") and key != "SPREADSHEET_ID_CONTROL":
             project_name = key.replace("SPREADSHEET_ID_", "").lower()
             SPREADSHEETS[project_name] = value
 
@@ -37,7 +39,6 @@ class Config:
     }
 
     # Configurações de alerta
-    RESENDING_DAYS_DELAY = 3 # envia alerta a cada 3 dias de atraso
     EXECUTION_HOUR = ["09:00", "14:00"]
 
     # Modo de teste
