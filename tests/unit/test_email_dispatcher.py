@@ -142,7 +142,7 @@ class TestEmailDispatcher:
         self.dispatcher._send.assert_called_once()
         call_args = self.dispatcher._send.call_args[0]
         assert call_args[0] == "joao@lab.com"  # to_email
-        assert "[ALERT] Start Activity: Revisão de documento - Sensor Diabetes" in call_args[1]  # subject
+        assert "[ALERTA] Atividade Iniciada: Revisão de documento - Sensor Diabetes" in call_args[1]  # subject
         assert call_args[2] == "<html>Mocked HTML</html>"  # html_body
         
         assert result is True
@@ -171,7 +171,7 @@ class TestEmailDispatcher:
         
         self.dispatcher._send.assert_called_once()
         call_args = self.dispatcher._send.call_args[0]
-        assert "[URGENT] Delayed Activity: Extração de dados - Sensor Diabetes" in call_args[1]
+        assert "[URGENTE] Atividade Atrasada: Extração de dados - Sensor Diabetes" in call_args[1]
         
         assert result is True
     
@@ -235,8 +235,8 @@ class TestEmailDispatcher:
         call_args = self.dispatcher._send.call_args[0]
         subject = call_args[1]
         
-        assert "ALERT" in subject
-        assert "Start Activity" in subject
+        assert "ALERTA" in subject
+        assert "Atividade Iniciada" in subject
         assert "Minha Atividade" in subject
         assert "Projeto X" in subject
     
@@ -257,8 +257,8 @@ class TestEmailDispatcher:
         call_args = self.dispatcher._send.call_args[0]
         subject = call_args[1]
         
-        assert "URGENT" in subject
-        assert "Delayed Activity" in subject
+        assert "URGENTE" in subject
+        assert "Atividade Atrasada" in subject
         assert "Minha Atividade" in subject
         assert "Projeto X" in subject
 

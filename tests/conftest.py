@@ -5,7 +5,7 @@ import gspread
 from datetime import date
 from unittest.mock import Mock, patch
 
-os.environ["TESTE_MODE"] = "True"
+os.environ["TEST_MODE"] = "True"
 os.environ["EMAIL_NATS"] = "teste@email.com"
 
 # Adiciona o caminho do projeto para todos os testes
@@ -45,8 +45,8 @@ def google_client(config):
 
 @pytest.fixture
 def alert_system(config):
-    from src.alert_system import AlertSystems
-    return AlertSystems(config)
+    from src.alert_system import AlertSystem
+    return AlertSystem(config)
 
 
 @pytest.fixture
@@ -101,7 +101,7 @@ def sample_activities_data():
             "DEMANDA": "Reunião inicial de alinhamento",
             "DIA INICIO": "2026-04-02",
             "DIA DE TÉRMINO": "2026-04-02",
-            "SITUAÇÃO": "Concluídas",
+            "SITUAÇÃO": "Concluída",
             "RESPONSÁVEL": "TODOS"
         },
         {

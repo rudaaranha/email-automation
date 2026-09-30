@@ -147,7 +147,7 @@ class TestAlertSystem:
         
         activity = {
             "atividade": "Reunião inicial",
-            "status": "Concluídas",
+            "status": "Concluída",
             "data_inicio": date(2026, 4, 2),
             "data_fim": date(2026, 4, 2),
             "responsavel_raw": "PEDRO"
