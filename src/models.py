@@ -64,6 +64,7 @@ class ExecuteRequest(BaseModel):
     
 
 class TestEmailRequest(BaseModel):
+    __test__ = False
     """
     Modelo para requisição Post/test-email
     Testa o envio dos emails
