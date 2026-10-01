@@ -222,3 +222,132 @@ class TestAlertHistory:
                 reference_date.isoformat(),
             ]
         )
+
+
+class TestEnsureControlWorksheets:
+    """Tests for control worksheet initialization."""
+
+    def test_creates_missing_worksheets(self):
+        repository = SystemRepository.__new__(SystemRepository)
+
+        spreadsheet = Mock()
+
+        projects_worksheet = Mock()
+        projects_worksheet.title = SystemRepository.PROJECTS_WORKSHEET
+        projects_worksheet.row_values.return_value = []
+
+        alert_history_worksheet = Mock()
+        alert_history_worksheet.title = (
+            SystemRepository.ALERT_HISTORY_WORKSHEET
+        )
+        alert_history_worksheet.row_values.return_value = []
+
+        spreadsheet.worksheets.return_value = []
+
+        spreadsheet.add_worksheet.side_effect = [
+            projects_worksheet,
+            alert_history_worksheet,
+        ]
+
+        repository._get_control_spreadsheet = Mock(
+            return_value=spreadsheet
+        )
+
+        repository.ensure_control_worksheets()
+
+        assert spreadsheet.add_worksheet.call_count == 2
+
+        spreadsheet.add_worksheet.assert_any_call(
+            title=SystemRepository.PROJECTS_WORKSHEET,
+            rows=1000,
+            cols=4,
+        )
+
+        spreadsheet.add_worksheet.assert_any_call(
+            title=SystemRepository.ALERT_HISTORY_WORKSHEET,
+            rows=1000,
+            cols=7,
+        )
+
+        projects_worksheet.update.assert_called_once_with(
+            "A1:D1",
+            [SystemRepository.PROJECT_HEADERS],
+        )
+
+        alert_history_worksheet.update.assert_called_once_with(
+            "A1:G1",
+            [SystemRepository.ALERT_HISTORY_HEADERS],
+        )
+
+    def test_does_not_recreate_existing_worksheets(self):
+        repository = SystemRepository.__new__(SystemRepository)
+
+        projects_worksheet = Mock()
+        projects_worksheet.title = SystemRepository.PROJECTS_WORKSHEET
+        projects_worksheet.row_values.return_value = (
+            SystemRepository.PROJECT_HEADERS
+        )
+
+        alert_history_worksheet = Mock()
+        alert_history_worksheet.title = (
+            SystemRepository.ALERT_HISTORY_WORKSHEET
+        )
+        alert_history_worksheet.row_values.return_value = (
+            SystemRepository.ALERT_HISTORY_HEADERS
+        )
+
+        spreadsheet = Mock()
+        spreadsheet.worksheets.return_value = [
+            projects_worksheet,
+            alert_history_worksheet,
+        ]
+
+        repository._get_control_spreadsheet = Mock(
+            return_value=spreadsheet
+        )
+
+        repository.ensure_control_worksheets()
+
+        spreadsheet.add_worksheet.assert_not_called()
+
+        projects_worksheet.update.assert_not_called()
+        alert_history_worksheet.update.assert_not_called()
+
+    def test_updates_incorrect_headers(self):
+        repository = SystemRepository.__new__(SystemRepository)
+
+        projects_worksheet = Mock()
+        projects_worksheet.title = SystemRepository.PROJECTS_WORKSHEET
+        projects_worksheet.row_values.return_value = [
+            "wrong",
+            "headers",
+        ]
+
+        alert_history_worksheet = Mock()
+        alert_history_worksheet.title = (
+            SystemRepository.ALERT_HISTORY_WORKSHEET
+        )
+        alert_history_worksheet.row_values.return_value = (
+            SystemRepository.ALERT_HISTORY_HEADERS
+        )
+
+        spreadsheet = Mock()
+        spreadsheet.worksheets.return_value = [
+            projects_worksheet,
+            alert_history_worksheet,
+        ]
+
+        repository._get_control_spreadsheet = Mock(
+            return_value=spreadsheet
+        )
+
+        repository.ensure_control_worksheets()
+
+        spreadsheet.add_worksheet.assert_not_called()
+
+        projects_worksheet.update.assert_called_once_with(
+            "A1:D1",
+            [SystemRepository.PROJECT_HEADERS],
+        )
+
+        alert_history_worksheet.update.assert_not_called()

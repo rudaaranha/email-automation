@@ -13,6 +13,7 @@ from datetime import date, datetime
 from unittest.mock import Mock, patch, MagicMock
 from src.alert_system import AlertSystem
 from src.config import Config
+from src.models import AlertHistory, AlertType, ProjectState
 
 
 class TestAlertSystem:
@@ -20,8 +21,18 @@ class TestAlertSystem:
     
     def setup_method(self):
         """Setup before each test"""
+
         self.config = Config()
-        self.alert_system = AlertSystem(self.config)
+
+        self.system_repository = Mock()
+        self.system_repository.alert_was_sent.return_value = False
+
+        self.alert_system = AlertSystem(
+            self.config,
+            system_repository=self.system_repository,
+        )
+
+        self.alert_system.email_dispatcher = Mock()
     
     def test_process_all_spreadsheets_calls_all_projects(self):
         """Test that process_all_spreadsheets processes each configured project"""
@@ -290,20 +301,42 @@ class TestAlertSystem:
     
     def test_send_delay_alerts(self):
         """Test that send_delay_alerts sends emails to all recipients"""
-        recipients = [("JOÃO", "joao@email.com")]
-        
-        self.alert_system.email_dispatcher.send_alert_delay = Mock(return_value=True)
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        reference_date = date(2026, 10, 1)
+
+        self.alert_system.email_dispatcher.send_alert_delay.return_value = True
+        self.system_repository.alert_was_sent.return_value = False
         
         self.alert_system._send_delay_alerts(
             recipients=recipients,
-            activity_name="Teste Atividade",
-            end_date="05/04/2026",
-            days_delayed=5,
-            project_name="Projeto Teste"
+            activity_name="Atividade Teste",
+            end_date="30/09/2026",
+            days_delayed=1,
+            project_name="Projeto Teste",
+            reference_date=reference_date,
         )
-        
+
+        # Verifica que o repositório foi consultado
+        self.system_repository.alert_was_sent.assert_called_once_with(
+            project="Projeto Teste",
+            activity="Atividade Teste",
+            researcher="JOÃO",
+            alert_type=AlertType.ATRASO,
+            reference_date=reference_date,
+        )
+
+        # Verifica que o e-mail foi enviado
         self.alert_system.email_dispatcher.send_alert_delay.assert_called_once()
+
+        # Verifica que o histórico foi salvo
+        self.system_repository.save_alert_history.assert_called_once()
+
+        # Verifica a estatística
         assert self.alert_system.stats["alerts_delay"] == 1
+        
     
     def test_send_completion_alerts(self):
         """Test that send_completion_alerts sends emails to all recipients"""
@@ -364,6 +397,181 @@ class TestAlertSystem:
         assert self.alert_system.stats["alerts_completion"] == 0
         assert len(self.alert_system.stats["errors"]) == 0
 
+    def test_new_project_is_registered_as_active(self):
+        self.config.SPREADSHEETS = {
+            "projeto_novo": "id_123"
+        }
+
+        self.system_repository.get_project_state.return_value = None
+        self.alert_system._process_single_spreadsheet = Mock()
+
+        self.alert_system.process_all_spreadsheets()
+
+        self.system_repository.save_project_state.assert_called_once()
+
+        saved_state = (
+            self.system_repository.save_project_state.call_args[0][0]
+        )
+
+        assert saved_state.project == "projeto_novo"
+        assert saved_state.spreadsheet_id == "id_123"
+        assert saved_state.active is True
+
+        self.alert_system._process_single_spreadsheet.assert_called_once_with(
+            "id_123",
+            "projeto_novo",
+        )
+
+
+    def test_inactive_project_is_not_processed(self):
+        self.config.SPREADSHEETS = {
+            "projeto_inativo": "id_123"
+        }
+
+        self.system_repository.get_project_state.return_value = ProjectState(
+            project="projeto_inativo",
+            spreadsheet_id="id_123",
+            active=False,
+        )
+
+        self.alert_system._process_single_spreadsheet = Mock()
+
+        result = self.alert_system.process_all_spreadsheets()
+
+        self.alert_system._process_single_spreadsheet.assert_not_called()
+
+        assert result["total_spreadsheets"] == 0
+
+
+    def test_active_project_is_processed(self):
+        self.config.SPREADSHEETS = {
+            "projeto_ativo": "id_123"
+        }
+
+        self.system_repository.get_project_state.return_value = ProjectState(
+            project="projeto_ativo",
+            spreadsheet_id="id_123",
+            active=True,
+        )
+
+        self.alert_system._process_single_spreadsheet = Mock()
+
+        self.alert_system.process_all_spreadsheets()
+
+        self.alert_system._process_single_spreadsheet.assert_called_once_with(
+            "id_123",
+            "projeto_ativo",
+        )
+
+        assert self.alert_system.stats["total_spreadsheets"] == 1
+
+    def test_control_worksheets_are_ensured_before_processing(self):
+        self.config.SPREADSHEETS = {
+            "projeto1": "id_123"
+        }
+
+        self.system_repository.get_project_state.return_value = ProjectState(
+            project="projeto1",
+            spreadsheet_id="id_123",
+            active=True,
+        )
+
+        self.alert_system._process_single_spreadsheet = Mock()
+
+        self.alert_system.process_all_spreadsheets()
+
+        self.system_repository.ensure_control_worksheets.assert_called_once()
+
+    def test_completion_alert_is_saved_to_history(self):
+        recipients = [
+            ("MARIA", "maria@email.com")
+        ]
+
+        self.alert_system.email_dispatcher.send_alert_completion = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_completion_alerts(
+            recipients=recipients,
+            activity_name="Atividade concluída",
+            project_name="Projeto Teste",
+        )
+
+        self.system_repository.alert_was_sent.assert_called_once_with(
+            project="Projeto Teste",
+            activity="Atividade concluída",
+            researcher="MARIA",
+            alert_type=AlertType.CONCLUSAO,
+        )
+
+        self.system_repository.save_alert_history.assert_called_once()
+
+        history = (
+            self.system_repository.save_alert_history.call_args[0][0]
+        )
+
+        assert history.project == "Projeto Teste"
+        assert history.activity == "Atividade concluída"
+        assert history.researcher == "MARIA"
+        assert history.email == "maria@email.com"
+        assert history.alert_type == AlertType.CONCLUSAO
+
+        assert self.alert_system.stats["alerts_completion"] == 1
+
+    def test_completion_alert_is_not_sent_if_already_sent(self):
+        recipients = [
+            ("MARIA", "maria@email.com")
+        ]
+
+        self.system_repository.alert_was_sent.return_value = True
+
+        self.alert_system.email_dispatcher.send_alert_completion = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_completion_alerts(
+            recipients=recipients,
+            activity_name="Atividade concluída",
+            project_name="Projeto Teste",
+        )
+
+        self.alert_system.email_dispatcher.send_alert_completion.assert_not_called()
+
+        self.system_repository.save_alert_history.assert_not_called()
+
+        assert self.alert_system.stats["alerts_completion"] == 0
+
+    def test_completion_alert_is_tracked_per_researcher(self):
+        recipients = [
+            ("MARIA", "maria@email.com"),
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        self.alert_system.email_dispatcher.send_alert_completion = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_completion_alerts(
+            recipients=recipients,
+            activity_name="Atividade concluída",
+            project_name="Projeto Teste",
+        )
+
+        assert (
+            self.alert_system.email_dispatcher
+            .send_alert_completion
+            .call_count
+            == 2
+        )
+
+        assert (
+            self.system_repository.save_alert_history
+            .call_count
+            == 2
+        )
+
+        assert self.alert_system.stats["alerts_completion"] == 2
+
 
 class TestAlertSystemIntegration:
     """Integration-like tests using mocks for all dependencies"""
@@ -373,14 +581,23 @@ class TestAlertSystemIntegration:
         config = Config()
         config.TEST_MODE = True
         config.SPREADSHEETS = {"teste": "id_teste"}
+
+        system_repository = Mock()
+        system_repository.get_project_state.return_value = None
+        system_repository.alert_was_sent.return_value = False
         
-        alert_system = AlertSystem(config)
+        alert_system = AlertSystem(
+            config,
+            system_repository=system_repository,
+        )
         
         # Mock spreadsheet_manager
-        alert_system.spreadsheet_manager.load_researchers = Mock(return_value={
-            "JOÃO": "joao@email.com",
-            "MARIA": "maria@email.com"
-        })
+        alert_system.spreadsheet_manager.load_researchers = Mock(
+            return_value={
+                "JOÃO": "joao@email.com",
+                "MARIA": "maria@email.com",
+            }
+        )
         
         alert_system.spreadsheet_manager.load_activities = Mock(return_value=[
             {

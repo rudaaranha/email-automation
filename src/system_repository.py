@@ -88,6 +88,54 @@ class SystemRepository:
                 "na planilha de controle."
             )
 
+    def ensure_control_worksheets(self) -> None:
+        """Garante que as abas de controle existam com os cabeçalhos esperados."""
+
+        spreadsheet = self._get_control_spreadsheet()
+
+        control_worksheets = [
+            (
+                self.PROJECTS_WORKSHEET,
+                self.PROJECT_HEADERS,
+                1000,
+                4,
+            ),
+            (
+                self.ALERT_HISTORY_WORKSHEET,
+                self.ALERT_HISTORY_HEADERS,
+                1000,
+                7,
+            ),
+        ]
+
+        existing_worksheets = spreadsheet.worksheets()
+
+        for worksheet_name, headers, rows, cols in control_worksheets:
+            worksheet = next(
+                (
+                    item
+                    for item in existing_worksheets
+                    if item.title == worksheet_name
+                ),
+                None,
+            )
+
+            if worksheet is None:
+                worksheet = spreadsheet.add_worksheet(
+                    title=worksheet_name,
+                    rows=rows,
+                    cols=cols,
+                )
+
+            current_headers = worksheet.row_values(1)
+
+            if current_headers != headers:
+                last_column = chr(64 + len(headers))
+                worksheet.update(
+                    f"A1:{last_column}1",
+                    [headers],
+                )
+
     def get_project_state(self, project: str) -> Optional[ProjectState]:
         """Busca o estado de um projeto."""
 

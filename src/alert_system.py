@@ -14,6 +14,8 @@ from typing import Dict, List, Optional, Any, Tuple
 from src.config import Config
 from src.spreadsheet_manager import SpreadsheetManager
 from src.email_dispatcher import EmailDispatcher
+from src.system_repository import SystemRepository
+from src.models import AlertHistory, AlertType, ProjectState
 
 
 class AlertSystem:
@@ -27,7 +29,10 @@ class AlertSystem:
     4. Return statistics about the execution
     """
     
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self, 
+                config: Optional[Config] = None,
+                system_repository: Optional[SystemRepository] = None, 
+    ):
         """
         Initialize the AlertSystem with configuration.
         
@@ -37,6 +42,10 @@ class AlertSystem:
         self.config = config or Config()
         self.spreadsheet_manager = SpreadsheetManager(self.config)
         self.email_dispatcher = EmailDispatcher(self.config)
+        self.system_repository = (
+            system_repository
+            or SystemRepository(self.config)
+        )
         
         # Statistics tracking
         self.stats = {
@@ -61,11 +70,29 @@ class AlertSystem:
         
         # Reset statistics
         self._reset_stats()
-        
+
+        self.system_repository.ensure_control_worksheets()
+
         # Process each spreadsheet
         for project_name, spreadsheet_id in self.config.SPREADSHEETS.items():
             if not spreadsheet_id:
                 print(f"⚠️ No ID for project: {project_name}")
+                continue
+
+            project_state = self.system_repository.get_project_state(project_name)
+
+            if project_state is None:
+                project_state = ProjectState(
+                    project=project_name,
+                    spreadsheet_id=spreadsheet_id,
+                )
+                self.system_repository.save_project_state(project_state)
+
+            if not project_state.active:
+                print(
+                    f"⏸️ Project inactive, skipping: "
+                    f"{project_name.upper()}"
+                )
                 continue
             
             print(f"\n📋 Processing project: {project_name.upper()}")
@@ -178,7 +205,11 @@ class AlertSystem:
         # Note: In a real system, you'd track previous status
         # For now, we just check if current status is "Concluída"
         if status == "Concluída":
-            self._send_completion_alerts(responsible_emails, activity_name, project_name)
+            self._send_completion_alerts(
+                responsible_emails, 
+                activity_name, 
+                project_name,
+            )
         
         # Check for START alert (start_date == today)
         elif start_date and start_date == today:
@@ -186,8 +217,11 @@ class AlertSystem:
             start_date_str = start_date.strftime("%d/%m/%Y")
             
             self._send_start_alerts(
-                responsible_emails, activity_name, 
-                start_date_str, end_date_str, project_name
+                responsible_emails, 
+                activity_name, 
+                start_date_str, 
+                end_date_str, 
+                project_name,
             )
         
         # Check for DELAY alert (end_date < today and not completed)
@@ -196,13 +230,22 @@ class AlertSystem:
             end_date_str = end_date.strftime("%d/%m/%Y")
             
             self._send_delay_alerts(
-                responsible_emails, activity_name,
-                end_date_str, days_delayed, project_name
+                responsible_emails, 
+                activity_name,
+                end_date_str, 
+                days_delayed, 
+                project_name,
+                today,
             )
     
-    def _send_start_alerts(self, recipients: List[Tuple[str, str]], 
-                           activity_name: str, start_date: str,
-                           end_date: str, project_name: str):
+    def _send_start_alerts(
+            self, 
+            recipients: List[Tuple[str, str]], 
+            activity_name: str, 
+            start_date: str,
+            end_date: str, 
+            project_name: str,
+    ):
         """
         Send start alerts to all recipients.
         
@@ -231,9 +274,15 @@ class AlertSystem:
                 self.stats["errors"].append(error_msg)
                 print(f"   ❌ {error_msg}")
     
-    def _send_delay_alerts(self, recipients: List[Tuple[str, str]],
-                           activity_name: str, end_date: str,
-                           days_delayed: int, project_name: str):
+    def _send_delay_alerts(
+            self, 
+            recipients: List[Tuple[str, str]],
+            activity_name: str, 
+            end_date: str,
+            days_delayed: int, 
+            project_name: str,
+            reference_date: date,
+    ):
         """
         Send delay alerts to all recipients.
         
@@ -245,25 +294,62 @@ class AlertSystem:
             project_name: Name of the project
         """
         for name, email in recipients:
+            already_sent = self.system_repository.alert_was_sent(
+                project=project_name,
+                activity=activity_name,
+                researcher=name,
+                alert_type=AlertType.ATRASO,
+                reference_date=reference_date,
+            )
+
+            if already_sent:
+                print(
+                    f"   ⏭️ Delay alert already sent today to: "
+                    f"{name} ({email})"
+                )
+                continue
+
             success = self.email_dispatcher.send_alert_delay(
                 to_email=email,
                 responsible_name=name,
                 activity_name=activity_name,
                 end_date=end_date,
                 days_delayed=days_delayed,
-                project_name=project_name
+                project_name=project_name,
             )
-            
+
             if success:
+                self.system_repository.save_alert_history(
+                    AlertHistory(
+                        project=project_name,
+                        activity=activity_name,
+                        researcher=name,
+                        email=email,
+                        alert_type=AlertType.ATRASO,
+                        reference_date=reference_date,
+                    )
+                )
+
                 self.stats["alerts_delay"] += 1
-                print(f"   ⚠️ Delay alert sent to: {name} ({email}) - {days_delayed} days")
+
+                print(
+                    f"   ⚠️ Delay alert sent to: "
+                    f"{name} ({email}) - {days_delayed} days"
+                )
             else:
-                error_msg = f"Failed to send delay alert to {email} for {activity_name}"
+                error_msg = (
+                    f"Failed to send delay alert to "
+                    f"{email} for {activity_name}"
+                )
                 self.stats["errors"].append(error_msg)
                 print(f"   ❌ {error_msg}")
     
-    def _send_completion_alerts(self, recipients: List[Tuple[str, str]],
-                                activity_name: str, project_name: str):
+    def _send_completion_alerts(
+            self, 
+            recipients: List[Tuple[str, str]],
+            activity_name: str, 
+            project_name: str,
+    ):
         """
         Send completion alerts to all recipients.
         
@@ -272,19 +358,51 @@ class AlertSystem:
             activity_name: Name of the activity
             project_name: Name of the project
         """
+
         for name, email in recipients:
+            already_sent = self.system_repository.alert_was_sent(
+                project=project_name,
+                activity=activity_name,
+                researcher=name,
+                alert_type=AlertType.CONCLUSAO,
+        )
+
+            if already_sent:
+                print(
+                    f"   ⏭️ Completion alert already sent to: "
+                    f"{name} ({email})"
+                )
+                continue
+
             success = self.email_dispatcher.send_alert_completion(
-                to_email=email,
-                responsible_name=name,
-                activity_name=activity_name,
-                project_name=project_name
+                    to_email=email,
+                    responsible_name=name,
+                    activity_name=activity_name,
+                    project_name=project_name,
             )
-            
+                
             if success:
+                self.system_repository.save_alert_history(
+                    AlertHistory(
+                        project=project_name,
+                        activity=activity_name,
+                        researcher=name,
+                        email=email,
+                        alert_type=AlertType.CONCLUSAO,
+                    )
+                )
+
                 self.stats["alerts_completion"] += 1
-                print(f"   ✅ Completion alert sent to: {name} ({email})")
+
+                print(
+                    f"   ✅ Completion alert sent to: "
+                    f"{name} ({email})"
+                )
             else:
-                error_msg = f"Failed to send completion alert to {email} for {activity_name}"
+                error_msg = (
+                    f"Failed to send completion alert to " 
+                    f"{email} for {activity_name}"
+                )
                 self.stats["errors"].append(error_msg)
                 print(f"   ❌ {error_msg}")
     
