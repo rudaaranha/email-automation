@@ -206,6 +206,7 @@ class TestAlertSystem:
         assert ("ALDENORA", "aldenora@email.com") in call_args
         assert ("ANA CAROLINA", "anacarolina@email.com") in call_args
         assert ("BÁRBARA", "barbara@email.com") in call_args
+
     
     def test_process_activity_skip_missing_email(self):
         """Test that activity skips responsibilities without email"""
@@ -231,6 +232,7 @@ class TestAlertSystem:
         call_args = self.alert_system._send_start_alerts.call_args[0][0]  # recipients
         assert len(call_args) == 1
         assert call_args[0][0] == "JOÃO"
+
     
     def test_process_activity_skip_without_responsible(self):
         """Test that activity without responsible is skipped"""
@@ -252,6 +254,7 @@ class TestAlertSystem:
         
         # No alerts should be sent
         self.alert_system._send_start_alerts.assert_not_called()
+
     
     def test_send_start_alerts(self):
         """Test that send_start_alerts sends emails to all recipients"""
@@ -276,6 +279,7 @@ class TestAlertSystem:
         
         # Check stats
         assert self.alert_system.stats["alerts_start"] == 2
+
     
     def test_send_start_alerts_with_failure(self):
         """Test that send_start_alerts handles email sending failures"""
@@ -298,7 +302,690 @@ class TestAlertSystem:
         # Error should be recorded
         assert len(self.alert_system.stats["errors"]) == 1
         assert "Failed to send start alert" in self.alert_system.stats["errors"][0]
-    
+
+
+    def test_send_start_alerts_saves_history(self):
+        """Test that start alert is sent and saved to history."""
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = False
+
+        self.alert_system.email_dispatcher.send_alert_start = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_start_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            start_date="07/10/2026",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+        )
+
+        self.system_repository.alert_was_sent.assert_called_once_with(
+            project="Projeto Teste",
+            activity="Entrega de relatório",
+            researcher="JOÃO",
+            alert_type=AlertType.INICIO,
+        )
+
+        self.alert_system.email_dispatcher.send_alert_start.assert_called_once_with(
+            to_email="joao@email.com",
+            responsible_name="JOÃO",
+            activity_name="Entrega de relatório",
+            start_date="07/10/2026",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+        )
+
+        self.system_repository.save_alert_history.assert_called_once()
+
+        history = (
+            self.system_repository.save_alert_history.call_args[0][0]
+        )
+
+        assert history.project == "Projeto Teste"
+        assert history.activity == "Entrega de relatório"
+        assert history.researcher == "JOÃO"
+        assert history.email == "joao@email.com"
+        assert history.alert_type == AlertType.INICIO
+
+        assert self.alert_system.stats["alerts_start"] == 1
+
+
+    def test_send_start_alerts_does_not_resend_if_already_sent(self):
+        """Test that start alert is not sent twice."""
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = True
+
+        self.alert_system.email_dispatcher.send_alert_start = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_start_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            start_date="07/10/2026",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+        )
+
+        self.alert_system.email_dispatcher.send_alert_start.assert_not_called()
+
+        self.system_repository.save_alert_history.assert_not_called()
+
+        assert self.alert_system.stats["alerts_start"] == 0
+
+
+    def test_send_start_alerts_does_not_save_history_on_failure(self):
+        """Test that failed start alert is not saved to history."""
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = False
+
+        self.alert_system.email_dispatcher.send_alert_start = Mock(
+            return_value=False
+        )
+
+        self.alert_system._send_start_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            start_date="07/10/2026",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+        )
+
+        self.alert_system.email_dispatcher.send_alert_start.assert_called_once()
+
+        self.system_repository.save_alert_history.assert_not_called()
+
+        assert self.alert_system.stats["alerts_start"] == 0
+
+        assert len(self.alert_system.stats["errors"]) == 1
+
+        assert "Failed to send start alert" in (
+            self.alert_system.stats["errors"][0]
+        )   
+
+
+    def test_send_start_alerts_tracks_each_researcher(self):
+        """Test that start alert is tracked independently per researcher."""
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+            ("MARIA", "maria@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = False
+
+        self.alert_system.email_dispatcher.send_alert_start = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_start_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            start_date="07/10/2026",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+        )
+
+        assert (
+            self.alert_system.email_dispatcher
+            .send_alert_start
+            .call_count
+            == 2
+        )
+
+        assert self.system_repository.save_alert_history.call_count == 2
+
+        assert self.alert_system.stats["alerts_start"] == 2
+
+
+    def test_send_start_alerts_only_sends_to_new_researcher(self):
+        """Test that only a new researcher receives the start alert."""
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+            ("MARIA", "maria@email.com"),
+        ]
+
+        def alert_already_sent(**kwargs):
+            return kwargs["researcher"] == "JOÃO"
+
+        self.system_repository.alert_was_sent.side_effect = (
+            alert_already_sent
+        )
+
+        self.alert_system.email_dispatcher.send_alert_start = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_start_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            start_date="07/10/2026",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+        )
+
+        self.alert_system.email_dispatcher.send_alert_start.assert_called_once_with(
+            to_email="maria@email.com",
+            responsible_name="MARIA",
+            activity_name="Entrega de relatório",
+            start_date="07/10/2026",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+        )
+
+        assert self.system_repository.save_alert_history.call_count == 1
+
+        history = (
+            self.system_repository.save_alert_history.call_args[0][0]
+        )
+
+        assert history.researcher == "MARIA"
+        assert history.alert_type == AlertType.INICIO
+
+        assert self.alert_system.stats["alerts_start"] == 1
+
+
+    def test_process_activity_3_days_before_deadline(self):
+        """Test that activity with deadline exactly 3 days from today sends reminder."""
+        today = date(2026, 10, 7)
+
+        activity = {
+            "atividade": "Entrega de relatório",
+            "status": "Não iniciada",
+            "data_inicio": date(2026, 10, 1),
+            "data_fim": date(2026, 10, 10),
+            "responsavel_raw": "JOÃO",
+        }
+
+        researchers = {
+            "JOÃO": "joao@email.com",
+        }
+
+        self.alert_system._send_3_days_alerts = Mock()
+        self.alert_system._send_1_day_alerts = Mock()
+        self.alert_system._send_delay_alerts = Mock()
+        self.alert_system._send_completion_alerts = Mock()
+
+        self.alert_system._process_activity(
+            activity,
+            researchers,
+            "projeto_teste",
+            today,
+        )
+
+        self.alert_system._send_3_days_alerts.assert_called_once_with(
+            [("JOÃO", "joao@email.com")],
+            "Entrega de relatório",
+            "10/10/2026",
+            "projeto_teste",
+            today,
+        )
+
+        self.alert_system._send_1_day_alerts.assert_not_called()
+        self.alert_system._send_delay_alerts.assert_not_called()
+        self.alert_system._send_completion_alerts.assert_not_called()
+
+
+    def test_process_activity_does_not_send_3_days_reminder_with_4_days_remaining(self):
+        """Test that 4 days before deadline does not send 3-day reminder."""
+        today = date(2026, 10, 6)
+
+        activity = {
+            "atividade": "Entrega de relatório",
+            "status": "Não iniciada",
+            "data_inicio": date(2026, 10, 1),
+            "data_fim": date(2026, 10, 10),
+            "responsavel_raw": "JOÃO",
+        }
+
+        researchers = {
+            "JOÃO": "joao@email.com",
+        }
+
+        self.alert_system._send_3_days_alerts = Mock()
+        self.alert_system._send_1_day_alerts = Mock()
+        self.alert_system._send_delay_alerts = Mock()
+
+        self.alert_system._process_activity(
+            activity,
+            researchers,
+            "projeto_teste",
+            today,
+        )
+
+        self.alert_system._send_3_days_alerts.assert_not_called()
+        self.alert_system._send_1_day_alerts.assert_not_called()
+        self.alert_system._send_delay_alerts.assert_not_called()
+
+
+    def test_process_activity_does_not_send_3_days_reminder_with_2_days_remaining(self):
+        """Test that 2 days before deadline does not send 3-day reminder."""
+        today = date(2026, 10, 8)
+
+        activity = {
+            "atividade": "Entrega de relatório",
+            "status": "Não iniciada",
+            "data_inicio": date(2026, 10, 1),
+            "data_fim": date(2026, 10, 10),
+            "responsavel_raw": "JOÃO",
+        }
+
+        researchers = {
+            "JOÃO": "joao@email.com",
+        }
+
+        self.alert_system._send_3_days_alerts = Mock()
+        self.alert_system._send_1_day_alerts = Mock()
+
+        self.alert_system._process_activity(
+            activity,
+            researchers,
+            "projeto_teste",
+            today,
+        )
+
+        self.alert_system._send_3_days_alerts.assert_not_called()
+
+
+    def test_send_3_days_alerts(self):
+        """Test that 3-day reminder is sent and saved to history."""
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        reference_date = date(2026, 10, 7)
+
+        self.alert_system.email_dispatcher.send_alert_3_days = Mock(
+            return_value=True
+        )
+
+        self.system_repository.alert_was_sent.return_value = False
+
+        self.alert_system._send_3_days_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+            reference_date=reference_date,
+        )
+
+        self.system_repository.alert_was_sent.assert_called_once_with(
+            project="Projeto Teste",
+            activity="Entrega de relatório",
+            researcher="JOÃO",
+            alert_type=AlertType.FALTA_3_DIAS,
+        )
+
+        self.alert_system.email_dispatcher.send_alert_3_days.assert_called_once_with(
+            to_email="joao@email.com",
+            responsible_name="JOÃO",
+            activity_name="Entrega de relatório",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+        )
+
+        self.system_repository.save_alert_history.assert_called_once()
+
+        history = (
+            self.system_repository.save_alert_history.call_args[0][0]
+        )
+
+        assert history.project == "Projeto Teste"
+        assert history.activity == "Entrega de relatório"
+        assert history.researcher == "JOÃO"
+        assert history.email == "joao@email.com"
+        assert history.alert_type == AlertType.FALTA_3_DIAS
+        assert history.reference_date == reference_date
+
+        assert self.alert_system.stats["alerts_3_days"] == 1
+
+
+    def test_send_3_days_alerts_does_not_resend_if_already_sent(self):
+        """Test that 3-day reminder is not sent twice."""
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = True
+
+        self.alert_system.email_dispatcher.send_alert_3_days = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_3_days_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+            reference_date=date(2026, 10, 7),
+        )
+
+        self.alert_system.email_dispatcher.send_alert_3_days.assert_not_called()
+        self.system_repository.save_alert_history.assert_not_called()
+
+        assert self.alert_system.stats["alerts_3_days"] == 0
+
+
+    def test_send_3_days_alerts_does_not_save_history_on_failure(self):
+        """Test that failed 3-day reminder is not saved to history."""
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = False
+
+        self.alert_system.email_dispatcher.send_alert_3_days = Mock(
+            return_value=False
+        )
+
+        self.alert_system._send_3_days_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+            reference_date=date(2026, 10, 7),
+        )
+
+        self.alert_system.email_dispatcher.send_alert_3_days.assert_called_once()
+
+        self.system_repository.save_alert_history.assert_not_called()
+
+        assert self.alert_system.stats["alerts_3_days"] == 0
+
+        assert len(self.alert_system.stats["errors"]) == 1
+        assert "Failed to send 3-day reminder" in (
+            self.alert_system.stats["errors"][0]
+        )
+
+
+    def test_send_3_days_alerts_tracks_each_researcher(self):
+        """Test that 3-day reminder is tracked independently per researcher."""
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+            ("MARIA", "maria@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = False
+
+        self.alert_system.email_dispatcher.send_alert_3_days = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_3_days_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+            reference_date=date(2026, 10, 7),
+        )
+
+        assert (
+            self.alert_system.email_dispatcher
+            .send_alert_3_days
+            .call_count
+            == 2
+        )
+
+        assert self.system_repository.save_alert_history.call_count == 2
+
+        assert self.alert_system.stats["alerts_3_days"] == 2
+
+
+    def test_process_activity_1_day_before_deadline(self):
+        """Test that activity with deadline exactly 1 day from today sends reminder."""
+        today = date(2026, 10, 9)
+
+        activity = {
+            "atividade": "Entrega de relatório",
+            "status": "Não iniciada",
+            "data_inicio": date(2026, 10, 1),
+            "data_fim": date(2026, 10, 10),
+            "responsavel_raw": "JOÃO",
+        }
+
+        researchers = {
+            "JOÃO": "joao@email.com",
+        }
+
+        self.alert_system._send_3_days_alerts = Mock()
+        self.alert_system._send_1_day_alerts = Mock()
+        self.alert_system._send_delay_alerts = Mock()
+        self.alert_system._send_completion_alerts = Mock()
+
+        self.alert_system._process_activity(
+            activity,
+            researchers,
+            "projeto_teste",
+            today,
+        )
+
+        self.alert_system._send_1_day_alerts.assert_called_once_with(
+            [("JOÃO", "joao@email.com")],
+            "Entrega de relatório",
+            "10/10/2026",
+            "projeto_teste",
+            today,
+        )
+
+        self.alert_system._send_3_days_alerts.assert_not_called()
+        self.alert_system._send_delay_alerts.assert_not_called()
+        self.alert_system._send_completion_alerts.assert_not_called()
+
+
+    def test_process_activity_does_not_send_1_day_reminder_with_2_days_remaining(self):
+        """Test that 2 days before deadline does not send 1-day reminder."""
+        today = date(2026, 10, 8)
+
+        activity = {
+            "atividade": "Entrega de relatório",
+            "status": "Não iniciada",
+            "data_inicio": date(2026, 10, 1),
+            "data_fim": date(2026, 10, 10),
+            "responsavel_raw": "JOÃO",
+        }
+
+        researchers = {
+            "JOÃO": "joao@email.com",
+        }
+
+        self.alert_system._send_1_day_alerts = Mock()
+        self.alert_system._send_delay_alerts = Mock()
+
+        self.alert_system._process_activity(
+            activity,
+            researchers,
+            "projeto_teste",
+            today,
+        )
+
+        self.alert_system._send_1_day_alerts.assert_not_called()
+        self.alert_system._send_delay_alerts.assert_not_called()
+
+
+    def test_send_1_day_alerts(self):
+        """Test that 1-day reminder is sent and saved to history."""
+        recipients = [
+            ("MARIA", "maria@email.com"),
+        ]
+
+        reference_date = date(2026, 10, 9)
+
+        self.alert_system.email_dispatcher.send_alert_1_day = Mock(
+            return_value=True
+        )
+
+        self.system_repository.alert_was_sent.return_value = False
+
+        self.alert_system._send_1_day_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+            reference_date=reference_date,
+        )
+
+        self.system_repository.alert_was_sent.assert_called_once_with(
+            project="Projeto Teste",
+            activity="Entrega de relatório",
+            researcher="MARIA",
+            alert_type=AlertType.FALTA_1_DIA,
+        )
+
+        self.alert_system.email_dispatcher.send_alert_1_day.assert_called_once_with(
+            to_email="maria@email.com",
+            responsible_name="MARIA",
+            activity_name="Entrega de relatório",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+        )
+
+        self.system_repository.save_alert_history.assert_called_once()
+
+        history = (
+            self.system_repository.save_alert_history.call_args[0][0]
+        )
+
+        assert history.project == "Projeto Teste"
+        assert history.activity == "Entrega de relatório"
+        assert history.researcher == "MARIA"
+        assert history.email == "maria@email.com"
+        assert history.alert_type == AlertType.FALTA_1_DIA
+        assert history.reference_date == reference_date
+
+        assert self.alert_system.stats["alerts_1_day"] == 1    
+
+
+    def test_send_1_day_alerts_does_not_resend_if_already_sent(self):
+        """Test that 1-day reminder is not sent twice."""
+        recipients = [
+            ("MARIA", "maria@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = True
+
+        self.alert_system.email_dispatcher.send_alert_1_day = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_1_day_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+            reference_date=date(2026, 10, 9),
+        )
+
+        self.alert_system.email_dispatcher.send_alert_1_day.assert_not_called()
+        self.system_repository.save_alert_history.assert_not_called()
+
+        assert self.alert_system.stats["alerts_1_day"] == 0
+
+
+    def test_send_1_day_alerts_does_not_save_history_on_failure(self):
+        """Test that failed 1-day reminder is not saved to history."""
+        recipients = [
+            ("MARIA", "maria@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = False
+
+        self.alert_system.email_dispatcher.send_alert_1_day = Mock(
+            return_value=False
+        )
+
+        self.alert_system._send_1_day_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+            reference_date=date(2026, 10, 9),
+        )
+
+        self.alert_system.email_dispatcher.send_alert_1_day.assert_called_once()
+
+        self.system_repository.save_alert_history.assert_not_called()
+
+        assert self.alert_system.stats["alerts_1_day"] == 0
+
+        assert len(self.alert_system.stats["errors"]) == 1
+        assert "Failed to send 1-day reminder" in (
+            self.alert_system.stats["errors"][0]
+        )
+
+
+    def test_send_1_day_alerts_tracks_each_researcher(self):
+        """Test that 1-day reminder is tracked independently per researcher."""
+        recipients = [
+            ("MARIA", "maria@email.com"),
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = False
+
+        self.alert_system.email_dispatcher.send_alert_1_day = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_1_day_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+            reference_date=date(2026, 10, 9),
+        )
+
+        assert (
+            self.alert_system.email_dispatcher
+            .send_alert_1_day
+            .call_count
+            == 2
+        )
+
+        assert self.system_repository.save_alert_history.call_count == 2
+
+        assert self.alert_system.stats["alerts_1_day"] == 2
+
+
+    def test_completed_activity_does_not_send_deadline_reminders(self):
+        """Test that completed activities do not receive deadline reminders."""
+        today = date(2026, 10, 7)
+
+        activity = {
+            "atividade": "Entrega de relatório",
+            "status": "Concluída",
+            "data_inicio": date(2026, 10, 1),
+            "data_fim": date(2026, 10, 10),
+            "responsavel_raw": "JOÃO",
+        }
+
+        researchers = {
+            "JOÃO": "joao@email.com",
+        }
+
+        self.alert_system._send_3_days_alerts = Mock()
+        self.alert_system._send_1_day_alerts = Mock()
+
+        self.alert_system._process_activity(
+            activity,
+            researchers,
+            "projeto_teste",
+            today,
+        )
+
+        self.alert_system._send_3_days_alerts.assert_not_called()
+        self.alert_system._send_1_day_alerts.assert_not_called()
+
+        
     def test_send_delay_alerts(self):
         """Test that send_delay_alerts sends emails to all recipients"""
         recipients = [
@@ -369,6 +1056,7 @@ class TestAlertSystem:
         self.alert_system._process_single_spreadsheet.assert_called_once_with("id_123", "sensor_diabetes")
         
         assert result["project"] == "sensor_diabetes"
+
     
     def test_process_single_project_not_found(self):
         """Test that process_single_project returns error for unknown project"""
@@ -378,6 +1066,102 @@ class TestAlertSystem:
         
         assert "error" in result
         assert "not found" in result["error"]
+
+
+    def test_process_single_project_respects_active_true(self):
+        """Test that an active project is processed."""
+        self.config.SPREADSHEETS = {
+            "projeto_ativo": "id_123"
+        }
+
+        self.system_repository.get_project_state.return_value = ProjectState(
+            project="projeto_ativo",
+            spreadsheet_id="id_123",
+            active=True,
+        )
+
+        self.alert_system._process_single_spreadsheet = Mock()
+
+        result = self.alert_system.process_single_project(
+            "projeto_ativo"
+        )
+
+        self.alert_system._process_single_spreadsheet.assert_called_once_with(
+            "id_123",
+            "projeto_ativo",
+        )
+
+        assert result["project"] == "projeto_ativo"
+
+
+    def test_process_single_project_skips_inactive_project(self):
+        """Test that an inactive project is not processed."""
+        self.config.SPREADSHEETS = {
+            "projeto_inativo": "id_123"
+        }
+
+        self.system_repository.get_project_state.return_value = ProjectState(
+            project="projeto_inativo",
+            spreadsheet_id="id_123",
+            active=False,
+        )
+
+        self.alert_system._process_single_spreadsheet = Mock()
+
+        result = self.alert_system.process_single_project(
+            "projeto_inativo"
+        )
+
+        self.alert_system._process_single_spreadsheet.assert_not_called()
+
+        assert result["project"] == "projeto_inativo"
+        assert result["total_activities"] == 0
+
+        assert result["alerts_sent"]["start"] == 0
+        assert result["alerts_sent"]["delay"] == 0
+        assert result["alerts_sent"]["completion"] == 0
+        assert result["alerts_sent"]["3_days"] == 0
+        assert result["alerts_sent"]["1_day"] == 0
+
+
+    def test_process_single_project_registers_new_project_as_active(self):
+        """Test that a new project is registered as active."""
+        self.config.SPREADSHEETS = {
+            "projeto_novo": "id_123"
+        }
+
+        self.system_repository.get_project_state.return_value = None
+
+        self.alert_system._process_single_spreadsheet = Mock()
+
+        result = self.alert_system.process_single_project(
+            "projeto_novo"
+        )
+
+        self.system_repository.save_project_state.assert_called_once()
+
+        saved_state = (
+            self.system_repository.save_project_state.call_args[0][0]
+        )
+
+        assert saved_state.project == "projeto_novo"
+        assert saved_state.spreadsheet_id == "id_123"
+        assert saved_state.active is True
+
+        self.alert_system._process_single_spreadsheet.assert_called_once_with(
+            "id_123",
+            "projeto_novo",
+        )
+
+        assert result["project"] == "projeto_novo"
+
+
+
+
+
+
+
+
     
     def test_stats_reset_between_executions(self):
         """Test that statistics are reset between process executions"""

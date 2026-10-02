@@ -166,7 +166,214 @@ class EmailTemplates:
         </body>
         </html>
     """
+
+    @staticmethod
+    def alert_3_days(
+            responsible_name: str,
+            activity_name: str,
+            end_date: str,
+            project_name: str,
+        ) -> str:
+            """
+            Template for the 3-day deadline reminder.
     
+            Args:
+                responsible_name: Name of the person responsible
+                activity_name: Name of the activity
+                end_date: Formatted end date (DD/MM/YYYY)
+                project_name: Name of the project
+    
+            Returns:
+                HTML string for the email
+            """
+            return f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+    
+            <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
+    
+                <div style="max-width: 600px; margin: 0 auto; background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+    
+                    <!-- Cabeçalho -->
+                    <div style="background-color: #f39c12; padding: 20px; text-align: center;">
+                        <h2 style="margin: 0; color: white;">
+                            ⏰ Lembrete de Prazo
+                        </h2>
+                    </div>
+    
+                    <!-- Conteúdo -->
+                    <div style="padding: 30px;">
+    
+                        <!-- Saudação -->
+                        <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+                            Olá <strong>{responsible_name}</strong>,
+                        </p>
+    
+                        <!-- Mensagem principal -->
+                        <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+                            Este é um lembrete de que faltam
+                            <strong style="color: #f39c12;">3 dias</strong>
+                            para o prazo de entrega da atividade abaixo:
+                        </p>
+    
+                        <!-- Informações -->
+                        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f39c12;">
+    
+                            <p style="margin: 5px 0;">
+                                <strong>📌 Projeto:</strong> {project_name}
+                            </p>
+    
+                            <p style="margin: 5px 0;">
+                                <strong>📝 Atividade:</strong> {activity_name}
+                            </p>
+    
+                            <p style="margin: 5px 0;">
+                                <strong>🎯 Data de Entrega:</strong> {end_date}
+                            </p>
+    
+                        </div>
+    
+                        <!-- Aviso -->
+                        <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+    
+                            <p style="margin: 0; color: #856404;">
+                                ⚠️ <strong>Atenção:</strong>
+                                organize-se para concluir esta atividade
+                                dentro do prazo estabelecido.
+                            </p>
+    
+                        </div>
+    
+                        <!-- Linha divisória -->
+                        <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+    
+                        <!-- Rodapé -->
+                        <p style="color: #7f8c8d; font-size: 12px; margin: 0; text-align: center;">
+                            Este é um email automático do sistema de gerenciamento de projetos.<br>
+                            Por favor, não responda a esta mensagem.
+                        </p>
+    
+                    </div>
+                </div>
+    
+            </body>
+            </html>
+            """
+    
+    @staticmethod
+    def alert_1_day(
+        responsible_name: str,
+        activity_name: str,
+        end_date: str,
+        project_name: str,
+    ) -> str:
+        """
+        Template for the 1-day deadline reminder.
+        """
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport"
+                content="width=device-width, initial-scale=1.0">
+        </head>
+
+        <body style="font-family: Arial, sans-serif;
+                    background-color: #f4f4f4;
+                    margin: 0;
+                    padding: 20px;">
+
+            <div style="max-width: 600px;
+                        margin: 0 auto;
+                        background-color: white;
+                        border-radius: 10px;
+                        overflow: hidden;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+
+                <div style="background-color: #e67e22;
+                            padding: 20px;
+                            text-align: center;">
+
+                    <h2 style="margin: 0; color: white;">
+                        ⚠️ Prazo de Entrega Amanhã
+                    </h2>
+
+                </div>
+
+                <div style="padding: 30px;">
+
+                    <p style="font-size: 16px; color: #333;">
+                        Olá <strong>{responsible_name}</strong>,
+                    </p>
+
+                    <p style="font-size: 16px; color: #333;">
+                        A atividade abaixo tem prazo de entrega
+                        <strong style="color: #e67e22;">
+                            amanhã
+                        </strong>.
+                    </p>
+
+                    <div style="background-color: #f8f9fa;
+                                padding: 20px;
+                                border-radius: 8px;
+                                margin: 20px 0;
+                                border-left: 4px solid #e67e22;">
+
+                        <p style="margin: 5px 0;">
+                            <strong>📌 Projeto:</strong> {project_name}
+                        </p>
+
+                        <p style="margin: 5px 0;">
+                            <strong>📝 Atividade:</strong> {activity_name}
+                        </p>
+
+                        <p style="margin: 5px 0;">
+                            <strong>🎯 Data de Entrega:</strong> {end_date}
+                        </p>
+
+                    </div>
+
+                    <div style="background-color: #f8d7da;
+                                padding: 15px;
+                                border-radius: 8px;
+                                margin: 20px 0;">
+
+                        <p style="margin: 0; color: #721c24;">
+                            🚨 <strong>Atenção:</strong>
+                            o prazo termina amanhã.
+                            Verifique se a atividade está pronta
+                            para entrega.
+                        </p>
+
+                    </div>
+
+                    <hr style="margin: 20px 0;
+                            border: none;
+                            border-top: 1px solid #eee;">
+
+                    <p style="color: #7f8c8d;
+                            font-size: 12px;
+                            margin: 0;
+                            text-align: center;">
+
+                        Este é um email automático do sistema
+                        de gerenciamento de projetos.<br>
+                        Por favor, não responda a esta mensagem.
+
+                    </p>
+
+                </div>
+            </div>
+
+        </body>
+        </html>
+        """
+
     @staticmethod
     def alert_completion(responsible_name: str, activity_name: str,
                          project_name: str) -> str:

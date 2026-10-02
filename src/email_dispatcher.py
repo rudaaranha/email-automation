@@ -114,6 +114,69 @@ class EmailDispatcher():
         return self._send(to_email, subject, html_body)
 
 
+    def send_alert_3_days(
+        self,
+        to_email: str,
+        responsible_name: str,
+        activity_name: str,
+        end_date: str,
+        project_name: str,
+    ) -> bool:
+        """
+        Send a reminder email when an activity is 3 days away
+        from its deadline.
+
+        Args:
+            to_email: Recipient email address
+            responsible_name: Name of the responsible person
+            activity_name: Name of the activity
+            end_date: Formatted end date (DD/MM/YYYY)
+            project_name: Name of the project
+
+        Returns:
+            True if email was sent successfully, False otherwise
+        """
+        subject = (
+            f"[LEMBRETE] Faltam 3 dias para entrega: "
+            f"{activity_name} - {project_name}"
+        )
+
+        html_body = self.templates.alert_three_days(
+            responsible_name=responsible_name,
+            activity_name=activity_name,
+            end_date=end_date,
+            project_name=project_name,
+        )
+
+        return self._send(to_email, subject, html_body)
+
+
+    def send_alert_1_day(
+        self,
+        to_email: str,
+        responsible_name: str,
+        activity_name: str,
+        end_date: str,
+        project_name: str,
+    ) -> bool:
+        """
+        Send an alert when an activity is one day away from its deadline.
+        """
+        subject = (
+            f"[URGENTE] Falta 1 dia para entrega: "
+            f"{activity_name} - {project_name}"
+        )
+
+        html_body = self.templates.alert_1_day(
+            responsible_name=responsible_name,
+            activity_name=activity_name,
+            end_date=end_date,
+            project_name=project_name,
+        )
+
+        return self._send(to_email, subject, html_body)
+
+
     def send_alert_delay(self, to_email: str, responsible_name: str, activity_name: str,
                          end_date: str, days_delayed: int, project_name: str) -> bool:
         """

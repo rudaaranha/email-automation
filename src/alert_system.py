@@ -54,6 +54,8 @@ class AlertSystem:
             "alerts_start": 0,
             "alerts_delay": 0,
             "alerts_completion": 0,
+            "alerts_3_days": 0,
+            "alerts_1_day": 0,
             "errors": []
         }
     
@@ -108,7 +110,9 @@ class AlertSystem:
             "alerts_sent": {
                 "start": self.stats["alerts_start"],
                 "delay": self.stats["alerts_delay"],
-                "completion": self.stats["alerts_completion"]
+                "completion": self.stats["alerts_completion"],
+                "3_days": self.stats["alerts_3_days"],
+                "1_day": self.stats["alerts_1_day"],
             },
             "errors": self.stats["errors"]
         }
@@ -121,6 +125,8 @@ class AlertSystem:
             "alerts_start": 0,
             "alerts_delay": 0,
             "alerts_completion": 0,
+            "alerts_3_days": 0,
+            "alerts_1_day": 0,
             "errors": []
         }
     
@@ -158,11 +164,15 @@ class AlertSystem:
         # Step 3: Process each activity
         for activity in activities:
             self._process_activity(activity, researchers, project_name, today)
+
     
-    def _process_activity(self, activity: Dict[str, Any], 
-                          researchers: Dict[str, str],
-                          project_name: str, 
-                          today: date):
+    def _process_activity(
+            self, 
+            activity: Dict[str, Any], 
+            researchers: Dict[str, str],
+            project_name: str, 
+            today: date
+    ):
         """
         Process a single activity and send appropriate alerts.
         
@@ -191,12 +201,17 @@ class AlertSystem:
         
         # Find emails for each responsible
         responsible_emails = []
+
         for name in responsible_names:
             email = researchers.get(name)
+
             if email:
                 responsible_emails.append((name, email))
             else:
-                print(f"   ⚠️ No email found for: {name} (activity: {activity_name})")
+                print(
+                    f"   ⚠️ No email found for: ) "
+                    f"{name} (activity: {activity_name}"
+            )
         
         if not responsible_emails:
             return
@@ -213,7 +228,12 @@ class AlertSystem:
         
         # Check for START alert (start_date == today)
         elif start_date and start_date == today:
-            end_date_str = end_date.strftime("%d/%m/%Y") if end_date else "N/A"
+            end_date_str = (
+                end_date.strftime("%d/%m/%Y")
+                if end_date
+                else "N/A"
+            )
+            
             start_date_str = start_date.strftime("%d/%m/%Y")
             
             self._send_start_alerts(
@@ -223,21 +243,48 @@ class AlertSystem:
                 end_date_str, 
                 project_name,
             )
-        
-        # Check for DELAY alert (end_date < today and not completed)
-        elif end_date and end_date < today and status != "Concluída":
-            days_delayed = (today - end_date).days
-            end_date_str = end_date.strftime("%d/%m/%Y")
-            
-            self._send_delay_alerts(
-                responsible_emails, 
-                activity_name,
-                end_date_str, 
-                days_delayed, 
-                project_name,
-                today,
-            )
-    
+
+        # Check for DEADLINE REMINDER - 3 DAYS
+        elif end_date:
+            days_until_end = (end_date - today).days
+
+            if days_until_end == 3:
+                end_date_str = end_date.strftime("%d/%m/%Y")
+
+                self._send_3_days_alerts(
+                    responsible_emails,
+                    activity_name,
+                    end_date_str,
+                    project_name,
+                    today,
+                )
+
+            elif days_until_end == 1:
+                end_date_str = end_date.strftime("%d/%m/%Y")
+
+                self._send_1_day_alerts(
+                    responsible_emails,
+                    activity_name,
+                    end_date_str,
+                    project_name,
+                    today,
+                )
+
+            # Check for DELAY alert
+            elif days_until_end < 0:
+                days_delayed = abs(days_until_end)
+                end_date_str = end_date.strftime("%d/%m/%Y")
+
+                self._send_delay_alerts(
+                    responsible_emails,
+                    activity_name,
+                    end_date_str,
+                    days_delayed,
+                    project_name,
+                    today,
+                )
+
+   
     def _send_start_alerts(
             self, 
             recipients: List[Tuple[str, str]], 
@@ -248,7 +295,8 @@ class AlertSystem:
     ):
         """
         Send start alerts to all recipients.
-        
+        The alert is sent only once per project/activity/researcher
+
         Args:
             recipients: List of (name, email) tuples
             activity_name: Name of the activity
@@ -257,6 +305,23 @@ class AlertSystem:
             project_name: Name of the project
         """
         for name, email in recipients:
+
+            #Check whether the start alert was already sent
+            already_sent = self.system_repository.alert_was_sent(
+                project=project_name,
+                activity=activity_name,
+                researcher=name,
+                alert_type=AlertType.INICIO,
+            )
+
+            if already_sent:
+                print(
+                    f"   ⏭️ Start alert already sent to: "
+                    f"{name} ({email})"
+                )
+                continue
+
+            # Send email
             success = self.email_dispatcher.send_alert_start(
                 to_email=email,
                 responsible_name=name,
@@ -267,12 +332,177 @@ class AlertSystem:
             )
             
             if success:
+                # Save history only after successful sending
+                self.system_repository.save_alert_history(
+                    AlertHistory(
+                        project=project_name,
+                        activity=activity_name,
+                        researcher=name,
+                        email=email,
+                        alert_type=AlertType.INICIO,
+                    )
+                )
+
                 self.stats["alerts_start"] += 1
-                print(f"   ✅ Start alert sent to: {name} ({email})")
+
+                print(
+                    f"   ✅ Start alert sent to: "
+                    f"{name} ({email})"
+                )
+
             else:
-                error_msg = f"Failed to send start alert to {email} for {activity_name}"
+                error_msg = (
+                    f"Failed to send start alert to "
+                    f"{email} for {activity_name}"
+                )
+
                 self.stats["errors"].append(error_msg)
+
                 print(f"   ❌ {error_msg}")
+
+
+    def _send_3_days_alerts(
+        self,
+        recipients: List[Tuple[str, str]],
+        activity_name: str,
+        end_date: str,
+        project_name: str,
+        reference_date: date,
+    ):
+        """
+        Send a reminder alert when an activity is 3 days away
+        from its deadline.
+
+        The alert is sent only once per
+        project/activity/researcher.
+        """
+
+        for name, email in recipients:
+
+            # Check whether this reminder was already sent
+            already_sent = self.system_repository.alert_was_sent(
+                project=project_name,
+                activity=activity_name,
+                researcher=name,
+                alert_type=AlertType.FALTA_3_DIAS,
+            )
+
+            if already_sent:
+                print(
+                    f"   ⏭️ 3-day reminder already sent to: "
+                    f"{name} ({email})"
+                )
+                continue
+
+            # Send email
+            success = self.email_dispatcher.send_alert_3_days(
+                to_email=email,
+                responsible_name=name,
+                activity_name=activity_name,
+                end_date=end_date,
+                project_name=project_name,
+            )
+
+            # Save history only after successful sending
+            if success:
+                self.system_repository.save_alert_history(
+                    AlertHistory(
+                        project=project_name,
+                        activity=activity_name,
+                        researcher=name,
+                        email=email,
+                        alert_type=AlertType.FALTA_3_DIAS,
+                        reference_date=reference_date,
+                    )
+                )
+
+                self.stats["alerts_3_days"] += 1
+
+                print(
+                    f"   ⏰ 3-day reminder sent to: "
+                    f"{name} ({email})"
+                )
+
+            else:
+                error_msg = (
+                    f"Failed to send 3-day reminder to "
+                    f"{email} for {activity_name}"
+                )
+
+                self.stats["errors"].append(error_msg)
+
+                print(f"   ❌ {error_msg}")
+
+
+    def _send_1_day_alerts(
+        self,
+        recipients: List[Tuple[str, str]],
+        activity_name: str,
+        end_date: str,
+        project_name: str,
+        reference_date: date,
+    ):
+        """
+        Send a reminder alert when an activity is 1 day away
+        from its deadline.
+
+        The alert is sent only once per
+        project/activity/researcher.
+        """
+
+        for name, email in recipients:
+
+            already_sent = self.system_repository.alert_was_sent(
+                project=project_name,
+                activity=activity_name,
+                researcher=name,
+                alert_type=AlertType.FALTA_1_DIA,
+            )
+
+            if already_sent:
+                print(
+                    f"   ⏭️ 1-day reminder already sent to: "
+                    f"{name} ({email})"
+                )
+                continue
+
+            success = self.email_dispatcher.send_alert_1_day(
+                to_email=email,
+                responsible_name=name,
+                activity_name=activity_name,
+                end_date=end_date,
+                project_name=project_name,
+            )
+
+            if success:
+                self.system_repository.save_alert_history(
+                    AlertHistory(
+                        project=project_name,
+                        activity=activity_name,
+                        researcher=name,
+                        email=email,
+                        alert_type=AlertType.FALTA_1_DIA,
+                        reference_date=reference_date,
+                    )
+                )
+
+                self.stats["alerts_1_day"] += 1
+
+                print(
+                    f"   ⚠️ 1-day reminder sent to: "
+                    f"{name} ({email})"
+                )
+
+            else:
+                error_msg = (
+                    f"Failed to send 1-day reminder to "
+                    f"{email} for {activity_name}"
+                )
+
+                self.stats["errors"].append(error_msg)
+
+                print(f"   ❌ {error_msg}")
+
     
     def _send_delay_alerts(
             self, 
@@ -416,6 +646,8 @@ class AlertSystem:
         print(f"   Start alerts sent: {self.stats['alerts_start']}")
         print(f"   Delay alerts sent: {self.stats['alerts_delay']}")
         print(f"   Completion alerts sent: {self.stats['alerts_completion']}")
+        print(f"   3-day reminders sent: {self.stats['alerts_3_days']}")
+        print(f"   1-day reminders sent: {self.stats['alerts_1_day']}")
         print(f"   Errors: {len(self.stats['errors'])}")
         print("="*60)
     
@@ -430,7 +662,9 @@ class AlertSystem:
             Dictionary with execution statistics
         """
         if project_name not in self.config.SPREADSHEETS:
-            error_msg = f"Project '{project_name}' not found in configuration"
+            error_msg = (
+                f"Project '{project_name}' not found in configuration"
+            )
             print(f"❌ {error_msg}")
             return {"error": error_msg}
         
@@ -440,19 +674,64 @@ class AlertSystem:
         self._reset_stats()
         
         print("\n" + "="*60)
-        print(f"🚀 STARTING SINGLE PROJECT: {project_name.upper()}")
+        print(
+            f"🚀 STARTING SINGLE PROJECT: "
+            f"{project_name.upper()}"
+        )
         print("="*60)
-        
-        self._process_single_spreadsheet(spreadsheet_id, project_name)
+
+        # Get project state from control spreadsheet
+        project_state = self.system_repository.get_project_state(
+            project_name
+        )
+
+        # Register project if it does not exist yet
+        if project_state is None:
+            project_state = ProjectState(
+                project=project_name,
+                spreadsheet_id=spreadsheet_id,
+            )
+
+            self.system_repository.save_project_state(
+                project_state
+            )
+
+        # Respect the active flag
+        if not project_state.active:
+            print(
+                f"⏸️ Project inactive, skipping: "
+                f"{project_name.upper()}"
+            )
+
+            return {
+                "project": project_name,
+                "total_activities": 0,
+                "alerts_sent": {
+                    "start": 0,
+                    "delay": 0,
+                    "completion": 0,
+                    "3_days": 0,
+                    "1_day": 0,
+                },
+                "errors": [],
+            }
+
+        self._process_single_spreadsheet(
+            spreadsheet_id,
+            project_name,
+        )
+
         self._print_summary()
-        
+
         return {
             "project": project_name,
             "total_activities": self.stats["total_activities"],
             "alerts_sent": {
                 "start": self.stats["alerts_start"],
                 "delay": self.stats["alerts_delay"],
-                "completion": self.stats["alerts_completion"]
+                "completion": self.stats["alerts_completion"],
+                "3_days": self.stats["alerts_3_days"],
+                "1_day": self.stats["alerts_1_day"],
             },
-            "errors": self.stats["errors"]
+            "errors": self.stats["errors"],
         }
