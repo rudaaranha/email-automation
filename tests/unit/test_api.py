@@ -174,6 +174,12 @@ class TestAPI:
         
         # Criar mock system
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.config = Config()
+        mock_system.config.TEST_MODE = False
+
+        mock_system.email_dispatcher = Mock()
+        mock_system.email_dispatcher.test_mode = False
                      
         mock_system.process_all_spreadsheets.return_value = {
             "total_spreadsheets": 1,
@@ -205,6 +211,13 @@ class TestAPI:
     def test_execute_single_project(self):
         """Test executing a single project"""
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.config = Config()
+        mock_system.config.TEST_MODE = False
+
+        mock_system.email_dispatcher = Mock()
+        mock_system.email_dispatcher.test_mode = False
+        
         mock_system.process_single_project.return_value = {
             "project": "teste",
             "total_activities": 3,
@@ -264,6 +277,50 @@ class TestAPI:
         assert mock_system.config.TEST_MODE is True
         assert mock_system.email_dispatcher.test_mode is True
     
+
+    def test_execute_production_mode_resets_test_mode(self):
+        """Production mode must reset test mode from a previous test execution."""
+
+        mock_system = Mock(spec=AlertSystem)
+
+        mock_system.config = Config()
+        mock_system.config.TEST_MODE = True
+
+        mock_system.email_dispatcher = Mock()
+        mock_system.email_dispatcher.test_mode = True
+
+        mock_system.process_all_spreadsheets.return_value = {
+            "total_spreadsheets": 1,
+            "total_activities": 5,
+            "alerts_sent": {
+                "start": 0,
+                "delay": 0,
+                "completion": 0,
+                "3_days": 0,
+                "1_day": 0,
+            },
+            "errors": [],
+        }
+
+        app = FastAPI()
+        app.include_router(router)
+
+        app.dependency_overrides[get_alert_system] = (
+            lambda: mock_system
+        )
+
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/v1/execute",
+            json={"mode": "production"},
+        )
+
+        assert response.status_code == 200
+
+        assert mock_system.config.TEST_MODE is False
+        assert mock_system.email_dispatcher.test_mode is False
+
 
     def test_execute_with_force(self):
         """Test executing with force flag"""

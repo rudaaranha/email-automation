@@ -160,10 +160,11 @@ async def execute_alerts(
         HTTPException 500: If execution fails
     """
     try:
-        # Set test mode if requested
-        if request.mode == ExecutionMode.TEST:
-            alert_system.config.TEST_MODE = True
-            alert_system.email_dispatcher.test_mode = True
+        # Apply execution mode explicity for every request
+        is_test_mode = request.mode == ExecutionMode.TEST
+        
+        alert_system.config.TEST_MODE = is_test_mode
+        alert_system.email_dispatcher.test_mode = is_test_mode
         
         # Execute based on project parameter
         if request.project:
