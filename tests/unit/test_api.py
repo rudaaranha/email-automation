@@ -217,7 +217,7 @@ class TestAPI:
 
         mock_system.email_dispatcher = Mock()
         mock_system.email_dispatcher.test_mode = False
-        
+
         mock_system.process_single_project.return_value = {
             "project": "teste",
             "total_activities": 3,
@@ -320,31 +320,6 @@ class TestAPI:
 
         assert mock_system.config.TEST_MODE is False
         assert mock_system.email_dispatcher.test_mode is False
-
-
-    def test_execute_with_force(self):
-        """Test executing with force flag"""
-        mock_system = Mock()
-        mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
-        mock_system.config.EXECUTIONS_HOUR = ["09:00", "14:00"]
-        mock_system.spreadsheet_manager = Mock()
-        mock_system.email_dispatcher = Mock()
-        mock_system.email_dispatcher.test_mode = False
-
-        mock_system.process_all_spreadsheets.return_value = {
-            "total_spreadsheets": 1,
-            "total_activities": 5,
-            "alert_sent": {"start": 2, "delay": 1, "completion": 1},
-            "errors": []
-        }
-
-        client = self._client(mock_system)
-        response = client.post("/api/v1/execute", json={"force": True})
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
 
     
     def test_execute_project_not_found(self):

@@ -151,7 +151,7 @@ async def execute_alerts(
     It can process all configured projects or a specific one.
     
     Args:
-        request: ExecuteRequest with optional project, force, and mode
+        request: ExecuteRequest with optional project and mode
         
     Returns:
         ExecuteResponse: Summary of the execution

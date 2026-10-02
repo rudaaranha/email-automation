@@ -47,10 +47,7 @@ class ExecuteRequest(BaseModel):
         default=None,
         description="Nome do projeto especifico para processar"
     )
-    force: bool = Field(
-        default=False,
-        description="Força a execução mesmo fora do horário programado"
-    )
+    
     mode: ExecutionMode = Field(
         default=ExecutionMode.PRODUCTION,
         description="Modo de execução (test ou production)"
@@ -277,7 +274,6 @@ examples = {
         "summary": "Executar todos os projetos",
         "value": {
             "project": None,
-            "force": True,
             "mode": "production"
         }
     },
@@ -285,7 +281,6 @@ examples = {
         "summary": "Executar projeto específico em modo teste",
         "value": {
             "project": "sensor_diabetes",
-            "force": False,
             "mode": "test"
         }
     },
