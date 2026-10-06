@@ -202,11 +202,11 @@ async def execute_alerts(
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
-    except Exception as e:
+    except Exception:
         # Catch any unexpected errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Execution failed: {str(e)}"
+            detail=f"Erro interno ao executar o sistema de alertas."
         )
 
 
@@ -217,41 +217,6 @@ async def execute_alerts(
 def get_status_info():
     """Dependency that returns system status"""
     return get_system_status()
-
-# @router.get(
-#     "/status",
-#     response_model=StatusResponse,
-#     summary="Get system status",
-#     description="Returns the current status of the alert system."
-# )
-# async def get_status(alert_system: AlertSystem = Depends(get_alert_system)):
-#     """
-#     Get the current status of the system.
-    
-#     Returns information about:
-#         - System health
-#         - Test mode state
-#         - Configured projects
-#         - Execution schedule
-    
-#     Returns:
-#         StatusResponse: System status information
-#     """
-#     status_info = get_system_status()
-    
-#     # Get configured projects from config
-#     config = get_alert_system().config
-#     configured_projects = list(config.SPREADSHEETS.keys())
-    
-#     return StatusResponse(
-#         status="healthy" if status_info.get("alert_system_initialized", False) else "unhealthy",
-#         timestamp=datetime.now(),
-#         test_mode=status_info.get("test_mode", False),
-#         configured_projects=configured_projects,
-#         execution_hours=config.EXECUTION_HOUR,
-#         total_alerts_sent_today=0,  # Future: implement metrics
-#         last_execution=None  # Future: store last execution time
-#     )
 
 @router.get(
     "/status",

@@ -303,7 +303,7 @@ class TestAPI:
         
         assert response.status_code == 500
         data = response.json()
-        assert "detail" in data
+        assert data["detail"] == "Project 'inexistente' not found"
     
 
     def test_execute_unexpected_error(self):
@@ -324,7 +324,7 @@ class TestAPI:
         assert response.status_code == 500
         data = response.json()
         assert "detail" in data
-        assert "Unexpected error" in data["detail"]
+        assert data["detail"] == "Erro interno ao executar o sistema de alertas."
 
 
     # ============================================
