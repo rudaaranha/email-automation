@@ -2,7 +2,7 @@
 # 1. BASE IMAGE
 # ============================================
 # Usa Python 3.11 slim (leve e segura)
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # ============================================
 # 2. ENVIRONMENT VARIABLES
