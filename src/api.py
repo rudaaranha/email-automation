@@ -14,7 +14,7 @@ Endpoints:
 """
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from src.dependencies import get_alert_system, get_system_status, is_ready
 from src.alert_system import AlertSystem
@@ -23,7 +23,6 @@ from src.models import (
     ExecuteResponse,
     StatusResponse,
     HealthResponse,
-    ActivityResponse,
     ErrorResponse,
     ExecutionMode
 )
@@ -278,99 +277,3 @@ async def get_status(
         total_alerts_sent_today=0,
         last_execution=None
     )
-
-
-# ============================================
-# ACTIVITIES ENDPOINT (DEBUG)
-# ============================================
-
-@router.get(
-    "/activities",
-    response_model=List[ActivityResponse],
-    summary="List all activities",
-    description="Returns all activities from a specific project (debug endpoint)."
-)
-async def list_activities(
-    project: Optional[str] = None,
-    alert_system: AlertSystem = Depends(get_alert_system)
-):
-    """
-    List activities from a specific project or all projects.
-    
-    This is a debug endpoint to inspect activities.
-    
-    Args:
-        project: Optional project name to filter by
-        
-    Returns:
-        List[ActivityResponse]: List of activities
-        
-    Raises:
-        HTTPException 404: If project not found
-        HTTPException 500: If reading fails
-    """
-    try:
-        all_activities = []
-        
-        # Determine which projects to process
-        projects_to_process = {}
-        
-        if project:
-            # Check if project exists
-            if project not in alert_system.config.SPREADSHEETS:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Project '{project}' not found"
-                )
-            projects_to_process = {project: alert_system.config.SPREADSHEETS[project]}
-        else:
-            projects_to_process = alert_system.config.SPREADSHEETS
-        
-        # Load activities from each project
-        for project_name, sheet_id in projects_to_process.items():
-            if not sheet_id:
-                continue
-                
-            try:
-                # Load researchers and activities
-                researchers = alert_system.spreadsheet_manager.load_researchers(sheet_id)
-                activities = alert_system.spreadsheet_manager.load_activities(sheet_id)
-                
-                # Convert to response model
-                for activity in activities:
-                    activity_name = activity.get("atividade", "Unknown")
-                    responsible_raw = activity.get("responsavel", "")
-                    
-                    # Find email for responsible
-                    responsible_names = alert_system.spreadsheet_manager._process_responsibles(responsible_raw)
-                    email = None
-                    if responsible_names:
-                        # Get first responsible's email
-                        email = researchers.get(responsible_names[0])
-                    
-                    all_activities.append(
-                        ActivityResponse(
-                            id=activity.get("linha", 0),
-                            nome=activity_name,
-                            responsavel=responsible_raw,
-                            email_responsavel=email,
-                            data_inicio=activity.get("data_inicio"),
-                            data_fim=activity.get("data_fim"),
-                            status=activity.get("status", "Não iniciada"),
-                            dias_atraso=activity.get("dias_atraso", 0),
-                            project=project_name
-                        )
-                    )
-            except Exception as e:
-                print(f"Error loading activities for {project_name}: {e}")
-                continue
-        
-        return all_activities
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to load activities: {str(e)}"
-        )

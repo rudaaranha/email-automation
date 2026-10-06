@@ -6,7 +6,6 @@ Tests verify:
 - Health endpoint checks system status
 - Execute endpoint processes alerts correctly
 - Status endpoint returns system information
-- Activities endpoint lists activities
 - Error handling for invalid requests
 """
 
@@ -44,44 +43,6 @@ class TestAPI:
 
         return TestClient(app)
     
-    # @pytest.fixture
-    # def mock_alert_system(self):
-    #     """Create a mock AlertSystem"""
-    #     with patch('src.api.get_alert_system') as mock_get:
-    #         # Create mock system
-    #         mock_system = Mock(spec=AlertSystem)
-    #         mock_system.config = Config()
-    #         mock_system.config.SPREADSHEETS = {"teste": "id_123"}
-    #         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
-            
-    #         # Mock spreadsheet_manager
-    #         mock_system.spreadsheet_manager = Mock()
-    #         mock_system.spreadsheet_manager.load_researchers = Mock(return_value={})
-    #         mock_system.spreadsheet_manager.load_activities = Mock(return_value=[])
-    #         mock_system.spreadsheet_manager._process_responsibles = Mock(return_value=[])
-    #         mock_system.spreadsheet_manager.client = Mock()
-    #         mock_system.spreadsheet_manager.client.open_by_key = Mock()
-            
-    #         # Mock email_dispatcher
-    #         mock_system.email_dispatcher = Mock()
-    #         mock_system.email_dispatcher.test_mode = False
-            
-    #         # Mock methods
-    #         mock_system.process_all_spreadsheets = Mock(return_value={
-    #             "total_spreadsheets": 1,
-    #             "total_activities": 5,
-    #             "alerts_sent": {"start": 2, "delay": 1, "completion": 1},
-    #             "errors": []
-    #         })
-    #         mock_system.process_single_project = Mock(return_value={
-    #             "project": "teste",
-    #             "total_activities": 3,
-    #             "alerts_sent": {"start": 1, "delay": 0, "completion": 0},
-    #             "errors": []
-    #         })
-            
-    #         mock_get.return_value = mock_system
-    #         return mock_system
     
     # ============================================
     # TESTS FOR ROOT ENDPOINT
@@ -365,34 +326,7 @@ class TestAPI:
         assert "detail" in data
         assert "Unexpected error" in data["detail"]
 
-    # DEU ERRO
-    # def test_execute_with_mode_test_and_project(self):
-    #     """Test executing with both test mode and specific project"""
-    #     mock_system = Mock(spec=AlertSystem)
-    #     mock_system.config = Config()
-    #     mock_system.config.SPREADSHEETS = {"teste": "id_123"}
-    #     mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
-    #     mock_system.config.TEST_MODE = False
-    #     mock_system.spreadsheet_manager = Mock()
-    #     mock_system.email_dispatcher = Mock()
-    #     mock_system.email_dispatcher.test_mode = False
-        
-    #     mock_system.process_single_project.return_value = {
-    #         "project": "teste",
-    #         "total_activities": 3,
-    #         "alerts_sent": {"start": 0, "delay": 0, "completion": 0},
-    #         "errors": []
-    #     }
-        
-    #     client = self._create_client_with_mock(mock_system)
-    #     response = client.post("/api/v1/execute", json={"project": "teste", "mode": "test"})
-        
-    #     assert response.status_code == 200
-    #     data = response.json()
-    #     assert data["mode"] == "test"
-    #     assert mock_system.process_single_project.called
-    #     assert mock_system.config.TEST_MODE is True
-    
+
     # ============================================
     # TESTS FOR STATUS ENDPOINT
     # ============================================
@@ -462,146 +396,7 @@ class TestAPI:
         assert data["configured_projects"] == ["teste"]
         assert "timestamp" in data
     
-    # ============================================
-    # TESTS FOR ACTIVITIES ENDPOINT
-    # ============================================
-    
-    def test_activities_all_projects(self):
-        """Test listing activities from all projects"""
-        
-        mock_system = Mock(spec=AlertSystem)
-        mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
-        mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
 
-        mock_system.spreadsheet_manager = Mock()
-        mock_system.spreadsheet_manager.load_researchers.return_value = {
-            "JOÃO": "joao@email.com"
-        }
-        mock_system.spreadsheet_manager.load_activities.return_value = [
-            {
-                "linha": 2,
-                "atividade": "Atividade 1",
-                "responsavel_raw": "JOÃO",
-                "data_inicio": date(2026, 4, 1),
-                "data_fim": date(2026, 4, 10),
-                "status": "Não iniciada",
-                "dias_atraso": 0
-            },
-            {
-                "linha": 3,
-                "atividade": "Atividade 2",
-                "responsavel_raw": "MARIA",
-                "data_inicio": date(2026, 4, 5),
-                "data_fim": date(2026, 4, 15),
-                "status": "Concluída",
-                "dias_atraso": 0
-            }
-        ]
-
-        mock_system.spreadsheet_manager._process_responsibles = Mock(
-            side_effect=lambda x: [x] if x else []
-        )
-        
-        # if activities enpoint calls get_status_info, overrides too
-        status_info = {
-            "alert_system_initialized": True,
-            "test_mode": False
-        }
-
-        client = self._client(mock_system)
-        response = client.get("/api/v1/activities")
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) == 2
-        assert data[0]["nome"] == "Atividade 1"
-        assert data[0]["project"] == "teste"
-        assert data[1]["nome"] == "Atividade 2"
-    
-
-    def test_activities_single_project(self):
-        """Test listing activities from a specific project"""
-        mock_system = Mock(spec=AlertSystem)
-        mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
-        mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
-
-        mock_system.spreadsheet_manager = Mock()
-        mock_system.spreadsheet_manager.load_activities.return_value = {}
-        mock_system.spreadsheet_manager.load_activities.return_value = [
-            {"linha": 2, "atividade": "Teste", "responsavel_raw": "", "dias_atraso": 0}
-        ]
-        mock_system.spreadsheet_manager._process_responsibles = Mock(return_value=[])
-
-        app = FastAPI()
-        app.include_router(router)
-        app.dependency_overrides[get_alert_system] = lambda: mock_system
-
-        from src.api import get_status_info
-        app.dependency_overrides[get_status_info] = lambda: {
-            "alert_system_initialized": True,
-            "test_mode": False
-        }
-
-        client = TestClient(app)
-        response = client.get("/api/v1/activities?project=teste")
-        
-        assert response.status_code == 200
-        data = response.json()        
-        assert len(data) == 1
-        assert data[0]["project"] == "teste"
-
-    
-    def test_activities_project_not_found(self):
-        """Test activities endpoint with non-existent project"""
-        mock_system = Mock(spec=AlertSystem)
-        mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
-        mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
-        
-        app = FastAPI()
-        app.include_router(router)
-        app.dependency_overrides[get_alert_system] = lambda: mock_system
-
-        from src.api import get_status_info
-        app.dependency_overrides[get_status_info] = lambda: {
-            "alert_system_initialized": True,
-            "test_mode": False
-        }
-
-        client = TestClient(app)
-        response = client.get("/api/v1/activities?project=inexistente")
-        
-        assert response.status_code == 404
-        data = response.json()
-        assert "detail" in data
-        assert "not found" in data["detail"]
-    
-
-    def test_activities_error_loading(self):
-        """Test that the activities endpoint skips projects that fail to load."""
-        mock_system = Mock(spec=AlertSystem)
-        mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
-        mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
-
-        mock_system.spreadsheet_manager = Mock()
-        mock_system.spreadsheet_manager.load_researchers.return_value = {}
-        mock_system.spreadsheet_manager.load_activities.side_effect = Exception(
-            "Failed to load"
-        )
-
-        app = FastAPI()
-        app.include_router(router)
-        app.dependency_overrides[get_alert_system] = lambda: mock_system
-
-        client = TestClient(app)
-        response = client.get("/api/v1/activities")
-
-        assert response.status_code == 200
-        assert response.json() == []
-    
     # ============================================
     # TESTS FOR EXECUTE WITH DIFFERENT MODES
     # ============================================
@@ -681,9 +476,6 @@ class TestAPI:
         status_response = client.get("/api/v1/status")
         assert status_response.status_code == 200
 
-        # Activities endpoint
-        activities_response = client.get("/api/v1/activities")
-        assert activities_response.status_code == 200
     
     # ============================================
     # TESTS FOR RESPONSE MODELS
