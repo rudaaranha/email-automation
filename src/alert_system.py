@@ -61,7 +61,7 @@ class AlertSystem:
     
     def process_all_spreadsheets(self) -> Dict[str, Any]:
         """
-        Process all active projects configured in the control SPREADSHEETS.
+        Process all active projects configured in the control spreadsheet.
 
         Only projects with active=True are processed.
         Inactive projects are completely ignored.
@@ -76,7 +76,7 @@ class AlertSystem:
         # Ensure control worksheets exist
         self.system_repository.ensure_control_worksheets()
 
-        # Load only active projects from the control spreasheet
+        # Load only active projects from the control spreadsheet
         active_projects = self.system_repository.get_active_projects()
 
         print(
@@ -660,7 +660,7 @@ class AlertSystem:
         Only active projects are processed.
         
         Args:
-            project_name: Name of the project (key in SPREADSHEETS)
+            project_name: Name of the project in PROJECTS worksheet.
             
         Returns:
             Dictionary with execution statistics

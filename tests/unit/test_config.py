@@ -14,17 +14,6 @@ class TestConfig:
 
     
     @pytest.mark.unit
-    def upload_test_spreadsheet(self, config):
-        """Teste do carregamento correto das planilhas"""
-        assert len(config.SPREADSHEETS) > 0, 'nenhuma planilha configurada'
-
-        for nome, id_ in config.SPREADSHEETS.items():
-            assert isinstance(nome, str), f'Nome "{nome}" deve ser string'
-            assert isinstance(id_, str), f'ID "{id_}" deve ser string'
-            assert len(id_) > 0, f'ID da planilha "{nome}" está vazio'
-
-    
-    @pytest.mark.unit
     def json_path_test(self, config):
         """Teste o caminho do JSON está correto"""
         assert os.path.isabs(config.PATH_JSON)
@@ -66,9 +55,10 @@ class TestConfig:
 
 
     @pytest.mark.unit
-    def test_control_spreadsheet_is_separate(self, config):
-        """Verifica se a planilha de controle não é tratada como projeto"""
+    def test_control_spreadsheet_is_configured(self, config):
+        """Verifica se a planilha central de controle está configurada."""
 
+        assert config.CONTROL_SPREADSHEET_ID is not None
         assert config.CONTROL_SPREADSHEET_ID == "control_spreadsheet_test"
         assert isinstance(config.CONTROL_SPREADSHEET_ID, str)
         assert len(config.CONTROL_SPREADSHEET_ID) > 0

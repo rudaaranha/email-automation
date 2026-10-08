@@ -1100,10 +1100,7 @@ class TestAlertSystem:
 
     def test_process_single_project_respects_active_true(self):
         """Test that an active project is processed."""
-        self.config.SPREADSHEETS = {
-            "projeto_ativo": "id_123"
-        }
-
+        
         self.system_repository.get_project_state.return_value = ProjectState(
             project="projeto_ativo",
             spreadsheet_id="id_123",
@@ -1126,10 +1123,7 @@ class TestAlertSystem:
 
     def test_process_single_project_skips_inactive_project(self):
         """Test that an inactive project is not processed."""
-        self.config.SPREADSHEETS = {
-            "projeto_inativo": "id_123"
-        }
-
+        
         self.system_repository.get_project_state.return_value = ProjectState(
             project="projeto_inativo",
             spreadsheet_id="id_123",

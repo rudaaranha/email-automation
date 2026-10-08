@@ -90,7 +90,6 @@ class TestAPI:
         mock_system.system_repository.get_active_projects.return_value = []
 
         mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EMAIL_NATS = "teste@email.com"
         mock_system.config.SENHA_APP_NATS = "senha123"
         mock_system.config.TEST_MODE = False
@@ -311,7 +310,6 @@ class TestAPI:
         mock_system.system_repository.get_active_projects.return_value = []
 
         mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
 
         mock_system.spreadsheet_manager = Mock()
@@ -340,7 +338,6 @@ class TestAPI:
         mock_system.system_repository.get_active_projects.return_value = []
 
         mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
 
         mock_system.spreadsheet_manager = Mock()
@@ -383,7 +380,6 @@ class TestAPI:
         ]
         
         mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123", "outro": "id_456"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
         mock_system.config.TEST_MODE = False
 
@@ -427,7 +423,6 @@ class TestAPI:
         ]
 
         mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
         mock_system.config.TEST_MODE = False
 
@@ -466,7 +461,6 @@ class TestAPI:
         mock_system.system_repository.get_active_projects.return_value = []
         
         mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
         mock_system.config.TEST_MODE = False
 
@@ -512,7 +506,6 @@ class TestAPI:
         mock_system.system_repository.get_active_projects.return_value = []
 
         mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {}
         mock_system.config.EXECUTION_HOUR = []
         mock_system.config.TEST_MODE = False
 
@@ -556,7 +549,6 @@ class TestAPI:
         mock_system.system_repository.get_active_projects.return_value = []
 
         mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
 
         mock_system.spreadsheet_manager = Mock()
@@ -605,7 +597,6 @@ class TestAPI:
         ]
 
         mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
         mock_system.config.TEST_MODE = False
         
@@ -646,7 +637,6 @@ class TestAPIIntegration:
         mock_system.system_repository.get_active_projects.return_value = []
 
         mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
         mock_system.config.TEST_MODE = False
         
@@ -705,7 +695,6 @@ class TestAPIIntegration:
         mock_system.system_repository.get_active_projects.return_value = []
 
         mock_system.config = Config()
-        mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
         mock_system.config.TEST_MODE = False
         mock_system.config.EMAIL_NATS = None  # SMTP não configurado
