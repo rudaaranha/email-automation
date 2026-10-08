@@ -1032,7 +1032,44 @@ class TestAlertSystem:
 
         # Verifica a estatística
         assert self.alert_system.stats["alerts_delay"] == 1
-        
+
+
+    def test_send_delay_alerts_allows_new_alert_on_next_day(self):
+        """Test that delay alert can be sent again on a different day."""
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        self.alert_system.email_dispatcher.send_alert_delay = Mock(
+            return_value=True
+        )
+
+        # Alert was already sent on the previous day.
+        def alert_was_sent(**kwargs):
+            return kwargs["reference_date"] == date(2026, 10, 8)
+
+        self.system_repository.alert_was_sent.side_effect = alert_was_sent
+
+        self.alert_system._send_delay_alerts(
+            recipients=recipients,
+            activity_name="Atividade Teste",
+            end_date="05/10/2026",
+            days_delayed=4,
+            project_name="Projeto Teste",
+            reference_date=date(2026, 10, 9),
+        )
+
+        self.alert_system.email_dispatcher.send_alert_delay.assert_called_once()
+
+        self.system_repository.save_alert_history.assert_called_once()
+
+        history = self.system_repository.save_alert_history.call_args[0][0]
+
+        assert history.reference_date == date(2026, 10, 9)
+        assert history.alert_type == AlertType.ATRASO
+
+        assert self.alert_system.stats["alerts_delay"] == 1
+          
     
     def test_send_completion_alerts(self):
         """Test that send_completion_alerts sends emails to all recipients"""

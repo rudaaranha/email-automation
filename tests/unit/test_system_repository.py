@@ -177,6 +177,7 @@ class TestSaveProjectState:
             ]
         )
 
+
     def test_updates_existing_project(self):
         repository = SystemRepository.__new__(SystemRepository)
 
@@ -212,6 +213,35 @@ class TestSaveProjectState:
                 completed_at.isoformat(),
             ]],
         )
+
+
+    def test_mark_project_completed(self):
+        """Test that completing a project sets active to FALSE and records completion time."""
+        repository = SystemRepository.__new__(SystemRepository)
+
+        worksheet = Mock()
+        worksheet.get_all_records.return_value = [
+            {
+                "project": "projeto_teste",
+                "spreadsheet_id": "sheet123",
+                "active": "TRUE",
+                "completed_at": "",
+            }
+        ]
+
+        repository._get_worksheet = Mock(return_value=worksheet)
+
+        repository.mark_project_completed("projeto_teste")
+
+        worksheet.update.assert_called_once()
+        
+        args = worksheet.update.call_args
+
+        assert args[0][0] == "A2:D2"
+        assert args[0][1][0][0] == "projeto_teste"
+        assert args[0][1][0][1] == "sheet123"
+        assert args[0][1][0][2] == "FALSE"
+        assert args[0][1][0][3] != ""
 
 
 class TestAlertHistory:
