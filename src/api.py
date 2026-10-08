@@ -98,22 +98,29 @@ async def health_check(
     google_sheets_ok = True
     
     try:
-        # Try to access a configured spreadsheet
-        for project_name, sheet_id in alert_system.config.SPREADSHEETS.items():
-            if sheet_id:
-                try:
-                    # Just try to open the spreadsheet
-                    alert_system.spreadsheet_manager.client.open_by_key(sheet_id)
-                    sheets_accessible.append(project_name)
-                except Exception:
-                    google_sheets_ok = False
+        # Get only active projects from the control spreadsheet
+        active_projects = (
+            alert_system.system_repository.get_active_projects()
+        )
+
+        for project in active_projects:
+            try:
+                # Try to open only active project spreadsheets
+                alert_system.spreadsheet_manager.client.open_by_key(
+                    project.spreadsheet_id
+                )
+                sheets_accessible.append(project.project)
+                
+            except Exception:
+                google_sheets_ok = False
+
     except Exception:
         google_sheets_ok = False
     
     # Check SMTP configuration
     smtp_ok = (
-        alert_system.config.EMAIL_NATS is not None and
-        alert_system.config.SENHA_APP_NATS is not None
+        alert_system.config.EMAIL_NATS is not None 
+        and alert_system.config.SENHA_APP_NATS is not None
     )
     
     status = "ok" if (google_sheets_ok and smtp_ok) else "degraded"
@@ -231,10 +238,21 @@ async def get_status(
     """
     Get the current status of the system.
     """
-    configured_projects = list(alert_system.config.SPREADSHEETS.keys())
-    
+    active_projects = (
+        alert_system.system_repository.get_active_projects()
+    )
+
+    configured_projects = [
+        project.project
+        for project in active_projects
+    ]
+   
     return StatusResponse(
-        status="healthy" if status_info.get("alert_system_initialized", False) else "unhealthy",
+        status=(
+            "healthy" 
+            if status_info.get("alert_system_initialized", False) 
+            else "unhealthy"
+        ),
         timestamp=datetime.now(),
         test_mode=status_info.get("test_mode", False),
         configured_projects=configured_projects,

@@ -163,6 +163,52 @@ class SystemRepository:
 
         return None
 
+
+    def get_active_projects(self) -> List[ProjectState]:
+        """
+        Return all active projects configured in the control spreadsheet.
+
+        Only projects with active=TRUE are returned.
+        """
+        worksheet = self._get_worksheet(self.PROJECTS_WORKSHEET)
+
+        records = worksheet.get_all_records()
+        active_projects = []
+
+        for record in records:
+            project_name = str(record.get("project", "")).strip()
+            spreadsheet_id = str(record.get("spreadsheet_id", "")).strip()
+            active = str(record.get("active", "")).strip().upper() == "TRUE"
+
+            if not project_name or not spreadsheet_id:
+                continue
+
+            if not active:
+                continue
+
+            completed_at_raw = record.get("completed_at")
+            completed_at = None
+
+            if completed_at_raw:
+                try:
+                    completed_at = datetime.fromisoformat(
+                        str(completed_at_raw)
+                    )
+                except (ValueError, TypeError):
+                    pass
+
+            active_projects.append(
+                ProjectState(
+                    project=project_name,
+                    spreadsheet_id=spreadsheet_id,
+                    active=True,
+                    completed_at=completed_at,
+                )
+            )
+
+        return active_projects
+    
+
     def save_project_state(self, state: ProjectState) -> None:
         """Salva ou atualiza o estado de um projeto."""
 

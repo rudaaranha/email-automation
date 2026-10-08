@@ -51,7 +51,7 @@ class TestDependencies:
         # Should have expected attributes
         assert hasattr(config, 'EMAIL_NATS')
         assert hasattr(config, 'SENHA_APP_NATS')
-        assert hasattr(config, 'SPREADSHEETS')
+        assert hasattr(config, 'CONTROL_SPREADSHEET_ID')
         assert hasattr(config, 'TEST_MODE')
     
     def test_config_loaded_from_environment(self):

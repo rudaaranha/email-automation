@@ -72,7 +72,6 @@ class TestConfig:
         assert config.CONTROL_SPREADSHEET_ID == "control_spreadsheet_test"
         assert isinstance(config.CONTROL_SPREADSHEET_ID, str)
         assert len(config.CONTROL_SPREADSHEET_ID) > 0
-        assert "control" not in config.SPREADSHEETS
 
 
 if __name__ == "__main__":

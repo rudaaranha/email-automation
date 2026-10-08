@@ -45,6 +45,111 @@ class TestGetProjectState:
         assert result is None
 
 
+class TestGetActiveProjects:
+    """Tests for retrieving active projects."""
+
+    def test_returns_only_active_projects(self):
+        repository = SystemRepository.__new__(SystemRepository)
+
+        worksheet = Mock()
+        worksheet.get_all_records.return_value = [
+            {
+                "project": "projeto_ativo",
+                "spreadsheet_id": "sheet123",
+                "active": "TRUE",
+                "completed_at": "",
+            },
+            {
+                "project": "projeto_inativo",
+                "spreadsheet_id": "sheet456",
+                "active": "FALSE",
+                "completed_at": "",
+            },
+        ]
+
+        repository._get_worksheet = Mock(return_value=worksheet)
+
+        result = repository.get_active_projects()
+
+        assert len(result) == 1
+        assert result[0].project == "projeto_ativo"
+        assert result[0].spreadsheet_id == "sheet123"
+        assert result[0].active is True
+
+    def test_returns_empty_list_when_no_projects_are_active(self):
+        repository = SystemRepository.__new__(SystemRepository)
+
+        worksheet = Mock()
+        worksheet.get_all_records.return_value = [
+            {
+                "project": "projeto_inativo",
+                "spreadsheet_id": "sheet123",
+                "active": "FALSE",
+                "completed_at": "",
+            },
+        ]
+
+        repository._get_worksheet = Mock(return_value=worksheet)
+
+        result = repository.get_active_projects()
+
+        assert result == []
+
+    def test_ignores_projects_without_required_data(self):
+        repository = SystemRepository.__new__(SystemRepository)
+
+        worksheet = Mock()
+        worksheet.get_all_records.return_value = [
+            {
+                "project": "",
+                "spreadsheet_id": "sheet123",
+                "active": "TRUE",
+                "completed_at": "",
+            },
+            {
+                "project": "projeto_sem_id",
+                "spreadsheet_id": "",
+                "active": "TRUE",
+                "completed_at": "",
+            },
+            {
+                "project": "projeto_valido",
+                "spreadsheet_id": "sheet789",
+                "active": "TRUE",
+                "completed_at": "",
+            },
+        ]
+
+        repository._get_worksheet = Mock(return_value=worksheet)
+
+        result = repository.get_active_projects()
+
+        assert len(result) == 1
+        assert result[0].project == "projeto_valido"
+
+    def test_parses_completed_at(self):
+        repository = SystemRepository.__new__(SystemRepository)
+
+        worksheet = Mock()
+        worksheet.get_all_records.return_value = [
+            {
+                "project": "projeto_ativo",
+                "spreadsheet_id": "sheet123",
+                "active": "TRUE",
+                "completed_at": "2026-09-30T10:00:00",
+            },
+        ]
+
+        repository._get_worksheet = Mock(return_value=worksheet)
+
+        result = repository.get_active_projects()
+
+        assert len(result) == 1
+        assert result[0].completed_at == datetime(
+            2026, 9, 30, 10, 0
+        )
+
+
 class TestSaveProjectState:
     """Tests for project state persistence."""
 

@@ -61,50 +61,50 @@ class AlertSystem:
     
     def process_all_spreadsheets(self) -> Dict[str, Any]:
         """
-        Process all spreadsheets configured in SPREADSHEETS.
-        
-        Returns:
-            Dictionary with execution statistics
+        Process all active projects configured in the control SPREADSHEETS.
+
+        Only projects with active=True are processed.
+        Inactive projects are completely ignored.
         """
         print("\n" + "="*60)
         print("🚀 STARTING ALERT SYSTEM EXECUTION")
-        print("="*60)
+        print("=" * 60)
         
         # Reset statistics
         self._reset_stats()
 
+        # Ensure control worksheets exist
         self.system_repository.ensure_control_worksheets()
 
-        # Process each spreadsheet
-        for project_name, spreadsheet_id in self.config.SPREADSHEETS.items():
-            if not spreadsheet_id:
-                print(f"⚠️ No ID for project: {project_name}")
-                continue
+        # Load only active projects from the control spreasheet
+        active_projects = self.system_repository.get_active_projects()
 
-            project_state = self.system_repository.get_project_state(project_name)
+        print(
+            f"\n📋 Active projects found: {len(active_projects)}"
+        )
 
-            if project_state is None:
-                project_state = ProjectState(
-                    project=project_name,
-                    spreadsheet_id=spreadsheet_id,
-                )
-                self.system_repository.save_project_state(project_state)
-
-            if not project_state.active:
-                print(
-                    f"⏸️ Project inactive, skipping: "
-                    f"{project_name.upper()}"
-                )
-                continue
-            
-            print(f"\n📋 Processing project: {project_name.upper()}")
-            self._process_single_spreadsheet(spreadsheet_id, project_name)
-            self.stats["total_spreadsheets"] += 1
         
+        # Process each active project
+        for project_state in active_projects:
+            project_name = project_state.project
+            spreadsheet_id = project_state.spreadsheet_id
+
+            print(
+                f"\n📋 Processing project: "
+                f"{project_name.upper()}" 
+            )
+
+            self._process_single_spreadsheet(
+                spreadsheet_id,
+                project_name,
+            )
+
+            self.stats["total_spreadsheets"] += 1
+
         # Print final summary
         self._print_summary()
-        
-        return {
+
+        return{
             "total_spreadsheets": self.stats["total_spreadsheets"],
             "total_activities": self.stats["total_activities"],
             "alerts_sent": {
@@ -114,8 +114,9 @@ class AlertSystem:
                 "3_days": self.stats["alerts_3_days"],
                 "1_day": self.stats["alerts_1_day"],
             },
-            "errors": self.stats["errors"]
+            "errors": self.stats["errors"],
         }
+
     
     def _reset_stats(self):
         """Reset all statistics counters."""
@@ -654,22 +655,16 @@ class AlertSystem:
     def process_single_project(self, project_name: str) -> Dict[str, Any]:
         """
         Process a single project by name.
+
+        The project must be registered in the control spreadsheet.
+        Only active projects are processed.
         
         Args:
             project_name: Name of the project (key in SPREADSHEETS)
             
         Returns:
             Dictionary with execution statistics
-        """
-        if project_name not in self.config.SPREADSHEETS:
-            error_msg = (
-                f"Project '{project_name}' not found in configuration"
-            )
-            print(f"❌ {error_msg}")
-            return {"error": error_msg}
-        
-        spreadsheet_id = self.config.SPREADSHEETS[project_name]
-        
+        """        
         # Reset statistics
         self._reset_stats()
         
@@ -685,16 +680,13 @@ class AlertSystem:
             project_name
         )
 
-        # Register project if it does not exist yet
+        # Project must exist in PROJECTS
         if project_state is None:
-            project_state = ProjectState(
-                project=project_name,
-                spreadsheet_id=spreadsheet_id,
+            error_msg = (
+                f"Project '{project_name}' not found in control spreadsheet"
             )
-
-            self.system_repository.save_project_state(
-                project_state
-            )
+            print(f"❌ {error_msg}")
+            return {"error": error_msg}
 
         # Respect the active flag
         if not project_state.active:
@@ -715,6 +707,8 @@ class AlertSystem:
                 },
                 "errors": [],
             }
+
+        spreadsheet_id = project_state.spreadsheet_id
 
         self._process_single_spreadsheet(
             spreadsheet_id,

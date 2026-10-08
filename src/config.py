@@ -8,14 +8,8 @@ class Config:
     EMAIL_NATS = os.getenv("EMAIL_NATS")
     SENHA_APP_NATS = os.getenv("PASSWORD_APP_NATS")
 
-    # Planilhas
+    # Planilha de controle
     CONTROL_SPREADSHEET_ID = os.getenv("SPREADSHEET_ID_CONTROL")
-
-    SPREADSHEETS = {}
-    for key, value in os.environ.items():
-        if key.startswith("SPREADSHEET_ID_") and key != "SPREADSHEET_ID_CONTROL":
-            project_name = key.replace("SPREADSHEET_ID_", "").lower()
-            SPREADSHEETS[project_name] = value
 
     # Configuração do servidor SMTP
     SMTP_SERVER = 'smtp.gmail.com'

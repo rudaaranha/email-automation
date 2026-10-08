@@ -18,6 +18,7 @@ from src.api import router
 from src.dependencies import reset_singletons, get_alert_system, get_config
 from src.alert_system import AlertSystem
 from src.config import Config
+from src.models import ProjectState
 
 
 class TestAPI:
@@ -84,11 +85,16 @@ class TestAPI:
 
         # Configure mock to simulate healthy system
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
+
         mock_system.config = Config()
         mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EMAIL_NATS = "teste@email.com"
         mock_system.config.SENHA_APP_NATS = "senha123"
         mock_system.config.TEST_MODE = False
+
         mock_system.spreadsheet_manager = Mock()
         mock_system.spreadsheet_manager.client = Mock()
         mock_system.spreadsheet_manager.client.open_by_key = Mock()
@@ -136,6 +142,9 @@ class TestAPI:
         # Criar mock system
         mock_system = Mock(spec=AlertSystem)
 
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
+
         mock_system.config = Config()
         mock_system.config.TEST_MODE = False
 
@@ -173,6 +182,9 @@ class TestAPI:
         """Test executing a single project"""
         mock_system = Mock(spec=AlertSystem)
 
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
+
         mock_system.config = Config()
         mock_system.config.TEST_MODE = False
 
@@ -209,6 +221,10 @@ class TestAPI:
     def test_execute_test_mode(self):
         """Test executing in test mode"""
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
+        
         mock_system.config = Config()
         mock_system.config.TEST_MODE = False
         mock_system.email_dispatcher = Mock()
@@ -243,6 +259,9 @@ class TestAPI:
         """Production mode must reset test mode from a previous test execution."""
 
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
 
         mock_system.config = Config()
         mock_system.config.TEST_MODE = True
@@ -287,10 +306,16 @@ class TestAPI:
         """Test executing a project that doesn't exist"""
         # Configure mock to return error
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
+
         mock_system.config = Config()
         mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
+
         mock_system.spreadsheet_manager = Mock()
+
         mock_system.email_dispatcher = Mock()
         mock_system.email_dispatcher.test_mode = False
 
@@ -310,12 +335,19 @@ class TestAPI:
         """Test handling of unexpected errors during execution"""
         # Configure mock to raise exception
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
+
         mock_system.config = Config()
         mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
+
         mock_system.spreadsheet_manager = Mock()
+
         mock_system.email_dispatcher = Mock()
         mock_system.email_dispatcher.test_mode = False
+
         mock_system.process_all_spreadsheets.side_effect = Exception("Unexpected error")
 
         client = self._client(mock_system)
@@ -335,6 +367,21 @@ class TestAPI:
         """Test status endpoint returns correct information"""
         # AlertSystem Mock
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = [
+            ProjectState(
+                project="outro",
+                spreadsheet_id = "id_456",
+                active=True,
+            ),
+            ProjectState(
+                project="teste",
+                spreadsheet_id = "id_123",
+                active=True,
+            ),
+        ]
+        
         mock_system.config = Config()
         mock_system.config.SPREADSHEETS = {"teste": "id_123", "outro": "id_456"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
@@ -369,6 +416,16 @@ class TestAPI:
     def test_status_endpoint_unhealthy(self):
         # Mock do AlertSystem com dependency_overrides
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = [
+            ProjectState(
+                project="teste",
+                spreadsheet_id = "id_456",
+                active=True,
+            ),
+        ]
+
         mock_system.config = Config()
         mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
@@ -404,11 +461,17 @@ class TestAPI:
     def test_execute_with_mode_test_and_project(self):
         """Test executing with both test mode and specific project"""
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
+        
         mock_system.config = Config()
         mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
         mock_system.config.TEST_MODE = False
+
         mock_system.spreadsheet_manager = Mock()
+
         mock_system.email_dispatcher = Mock()
         mock_system.email_dispatcher.test_mode = False
         
@@ -444,6 +507,10 @@ class TestAPI:
         """Test that all endpoints are under /api/v1 prefix"""
         # Root is not under prefix
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
+
         mock_system.config = Config()
         mock_system.config.SPREADSHEETS = {}
         mock_system.config.EXECUTION_HOUR = []
@@ -484,10 +551,16 @@ class TestAPI:
     def test_execute_response_has_all_fields(self):
         """Test that execute response includes all expected fields"""
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
+
         mock_system.config = Config()
         mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
+
         mock_system.spreadsheet_manager = Mock()
+
         mock_system.email_dispatcher = Mock()
         mock_system.email_dispatcher.test_mode = False
         
@@ -521,6 +594,16 @@ class TestAPI:
     def test_status_response_has_all_fields(self):
         """Test that status response includes all expected fields"""
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = [
+            ProjectState(
+                project="teste",
+                spreadsheet_id = "id_123",
+                active=True,
+            ),
+        ]
+
         mock_system.config = Config()
         mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
@@ -558,6 +641,10 @@ class TestAPIIntegration:
         """Test complete execution workflow with real dependencies (mocked)"""
         # Criar mock do AlertSystem
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
+
         mock_system.config = Config()
         mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
@@ -613,6 +700,10 @@ class TestAPIIntegration:
         """Test health check detects missing SMTP configuration"""
         # Criar mock do AlertSystem com SMTP desconfigurado
         mock_system = Mock(spec=AlertSystem)
+
+        mock_system.system_repository = Mock()
+        mock_system.system_repository.get_active_projects.return_value = []
+
         mock_system.config = Config()
         mock_system.config.SPREADSHEETS = {"teste": "id_123"}
         mock_system.config.EXECUTION_HOUR = ["09:00", "14:00"]
