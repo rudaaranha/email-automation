@@ -76,6 +76,9 @@ class AlertSystem:
         # Ensure control worksheets exist
         self.system_repository.ensure_control_worksheets()
 
+        # Register completion timestamp for manually deactivated projects
+        self.system_repository.sync_completed_projects()
+
         # Load only active projects from the control spreadsheet
         active_projects = self.system_repository.get_active_projects()
 
@@ -674,6 +677,8 @@ class AlertSystem:
             f"{project_name.upper()}"
         )
         print("="*60)
+
+        self.system_repository.sync_completed_projects()
 
         # Get project state from control spreadsheet
         project_state = self.system_repository.get_project_state(

@@ -232,6 +232,38 @@ class SystemRepository:
 
         worksheet.append_row(values)
 
+    def sync_completed_projects(self) -> None:
+        """
+        Registra automaticamente a data de conclusão dos projetos
+        que foram desativados manualmente.
+
+        O operador controla apenas o campo `active`.
+        Quando active=FALSE e completed_at está vazio,
+        o sistema registra a data/hora atual.
+        """
+        worksheet = self._get_worksheet(self.PROJECTS_WORKSHEET)
+        records = worksheet.get_all_records()
+
+        for index, row in enumerate(records, start=2):
+            active = str(row.get("active", "")).strip().upper() == "TRUE"
+            completed_at = row.get("completed_at")
+
+            if active or completed_at:
+                continue
+
+            values = [
+                row.get("project", ""),
+                row.get("spreadsheet_id", ""),
+                "FALSE",
+                datetime.now().isoformat(),
+            ]
+
+            worksheet.update(
+                f"A{index}:D{index}",
+                [values],
+            )
+    
+
     def mark_project_completed(self, project: str) -> bool:
         """Marca um projeto como concluído."""
 
@@ -296,3 +328,35 @@ class SystemRepository:
                 ),
             ]
         )
+
+
+    def sync_completed_projects(self) -> None:
+        """
+        Registra automaticamente a data de conclusão dos projetos
+        que foram desativados manualmente.
+
+        O operador controla apenas o campo `active`.
+        Quando active=FALSE e completed_at está vazio,
+        o sistema registra a data/hora atual.
+        """
+        worksheet = self._get_worksheet(self.PROJECTS_WORKSHEET)
+        records = worksheet.get_all_records()
+
+        for index, row in enumerate(records, start=2):
+            active = str(row.get("active", "")).strip().upper() == "TRUE"
+            completed_at = row.get("completed_at")
+
+            if active or completed_at:
+                continue
+
+            values = [
+                row.get("project", ""),
+                row.get("spreadsheet_id", ""),
+                "FALSE",
+                datetime.now().isoformat(),
+            ]
+
+            worksheet.update(
+                f"A{index}:D{index}",
+                [values],
+            )
