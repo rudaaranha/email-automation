@@ -715,10 +715,13 @@ class AlertSystem:
             project_name,
         )
 
+        self.stats["total_spreadsheets"] += 1
+
         self._print_summary()
 
         return {
             "project": project_name,
+            "total_spreadsheets": self.stats["total_spreadsheets"],
             "total_activities": self.stats["total_activities"],
             "alerts_sent": {
                 "start": self.stats["alerts_start"],

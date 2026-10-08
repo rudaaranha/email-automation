@@ -1076,6 +1076,7 @@ class TestAlertSystem:
         )
         
         assert result["project"] == "projeto1"
+        assert result["total_spreadsheets"] == 1
 
     
     def test_process_single_project_not_found(self):
