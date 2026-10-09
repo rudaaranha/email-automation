@@ -5,6 +5,7 @@ import gspread
 
 from src.config import Config
 from src.models import AlertHistory, AlertType, ProjectState
+from src.google_auth import authenticate_google_sheets
 
 
 class SystemRepository:
@@ -34,28 +35,11 @@ class SystemRepository:
         self.config = config or Config()
         self.client = self._authenticate()
 
+
     def _authenticate(self):
-        """Autentica no Google Sheets usando as credenciais do projeto."""
+        """Autentica no Google Sheets usando as credenciais locais ou ADC."""
+        return authenticate_google_sheets(self.config)
 
-        scope = [
-            "https://spreadsheets.google.com/feeds",
-            "https://www.googleapis.com/auth/drive",
-        ]
-
-        from oauth2client.service_account import ServiceAccountCredentials
-
-        try:
-            creds = ServiceAccountCredentials.from_json_keyfile_name(
-                self.config.PATH_JSON,
-                scope,
-            )
-            return gspread.authorize(creds)
-        except FileNotFoundError:
-            raise Exception(
-                f"Arquivo de credenciais não encontrado: {self.config.PATH_JSON}"
-            )
-        except Exception as e:
-            raise Exception(f"Falha na autenticação: {e}")
 
     def _get_control_spreadsheet(self):
         """Retorna a planilha central de controle."""

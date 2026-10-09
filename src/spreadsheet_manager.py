@@ -1,10 +1,11 @@
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, date
 from typing import Dict, List, Optional, Any
 from dateutil.parser import parse
 import re
+
 from src.config import Config
+from src.google_auth import authenticate_google_sheets
 
 class SpreadsheetManager:
     def __init__(self, config: Config = None):
@@ -14,22 +15,11 @@ class SpreadsheetManager:
         self._cache_spreadsheet = {}
 
     def _authenticate(self):
-        """autenticação na API do google sheets"""
+        """autenticação no Google Sheets usando credenciais locais ou ADC."""
+        client = authenticate_google_sheets(self.config)
+        print("Autenticado com sucesso")
+        return client
 
-        scope = [
-            "https://spreadsheets.google.com/feeds",
-            "https://www.googleapis.com/auth/drive"
-        ]
-
-        try:
-            creds = ServiceAccountCredentials.from_json_keyfile_name(self.config.PATH_JSON, scope)
-            client = gspread.authorize(creds)
-            print('Autenticado com sucesso')
-            return client
-        except FileNotFoundError:
-            raise Exception(f"Arquivo de credenciais não encontrado: {self.config.PATH_JSON}")
-        except Exception as e:
-            raise Exception(f"Falha na autenticação: {e}")
     
     def _normalize_name(self, nome: str) -> str:
         """Trata a entrada dos nomes dos pesquisadores removendo espaços e colocando tudo em maiúsculo
