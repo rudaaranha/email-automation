@@ -336,16 +336,17 @@ class AlertSystem:
             )
             
             if success:
-                # Save history only after successful sending
-                self.system_repository.save_alert_history(
-                    AlertHistory(
-                        project=project_name,
-                        activity=activity_name,
-                        researcher=name,
-                        email=email,
-                        alert_type=AlertType.INICIO,
+                if not self.config.TEST_MODE:
+                    # Save history only after successful sending
+                    self.system_repository.save_alert_history(
+                        AlertHistory(
+                            project=project_name,
+                            activity=activity_name,
+                            researcher=name,
+                            email=email,
+                            alert_type=AlertType.INICIO,
+                        )
                     )
-                )
 
                 self.stats["alerts_start"] += 1
 
@@ -409,16 +410,17 @@ class AlertSystem:
 
             # Save history only after successful sending
             if success:
-                self.system_repository.save_alert_history(
-                    AlertHistory(
-                        project=project_name,
-                        activity=activity_name,
-                        researcher=name,
-                        email=email,
-                        alert_type=AlertType.FALTA_3_DIAS,
-                        reference_date=reference_date,
+                if not self.config.TEST_MODE:
+                    self.system_repository.save_alert_history(
+                        AlertHistory(
+                            project=project_name,
+                            activity=activity_name,
+                            researcher=name,
+                            email=email,
+                            alert_type=AlertType.FALTA_3_DIAS,
+                            reference_date=reference_date,
+                        )
                     )
-                )
 
                 self.stats["alerts_3_days"] += 1
 
@@ -479,16 +481,17 @@ class AlertSystem:
             )
 
             if success:
-                self.system_repository.save_alert_history(
-                    AlertHistory(
-                        project=project_name,
-                        activity=activity_name,
-                        researcher=name,
-                        email=email,
-                        alert_type=AlertType.FALTA_1_DIA,
-                        reference_date=reference_date,
+                if not self.config.TEST_MODE:
+                    self.system_repository.save_alert_history(
+                        AlertHistory(
+                            project=project_name,
+                            activity=activity_name,
+                            researcher=name,
+                            email=email,
+                            alert_type=AlertType.FALTA_1_DIA,
+                            reference_date=reference_date,
+                        )
                     )
-                )
 
                 self.stats["alerts_1_day"] += 1
 
@@ -553,16 +556,17 @@ class AlertSystem:
             )
 
             if success:
-                self.system_repository.save_alert_history(
-                    AlertHistory(
-                        project=project_name,
-                        activity=activity_name,
-                        researcher=name,
-                        email=email,
-                        alert_type=AlertType.ATRASO,
-                        reference_date=reference_date,
+                if not self.config.TEST_MODE:
+                    self.system_repository.save_alert_history(
+                        AlertHistory(
+                            project=project_name,
+                            activity=activity_name,
+                            researcher=name,
+                            email=email,
+                            alert_type=AlertType.ATRASO,
+                            reference_date=reference_date,
+                        )
                     )
-                )
 
                 self.stats["alerts_delay"] += 1
 
@@ -570,6 +574,7 @@ class AlertSystem:
                     f"   ⚠️ Delay alert sent to: "
                     f"{name} ({email}) - {days_delayed} days"
                 )
+
             else:
                 error_msg = (
                     f"Failed to send delay alert to "
@@ -616,15 +621,16 @@ class AlertSystem:
             )
                 
             if success:
-                self.system_repository.save_alert_history(
-                    AlertHistory(
-                        project=project_name,
-                        activity=activity_name,
-                        researcher=name,
-                        email=email,
-                        alert_type=AlertType.CONCLUSAO,
+                if not self.config.TEST_MODE:
+                    self.system_repository.save_alert_history(
+                        AlertHistory(
+                            project=project_name,
+                            activity=activity_name,
+                            researcher=name,
+                            email=email,
+                            alert_type=AlertType.CONCLUSAO,
+                        )
                     )
-                )
 
                 self.stats["alerts_completion"] += 1
 
@@ -632,6 +638,7 @@ class AlertSystem:
                     f"   ✅ Completion alert sent to: "
                     f"{name} ({email})"
                 )
+                    
             else:
                 error_msg = (
                     f"Failed to send completion alert to " 

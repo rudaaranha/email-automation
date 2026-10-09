@@ -23,6 +23,7 @@ class TestAlertSystem:
         """Setup before each test"""
 
         self.config = Config()
+        self.config.TEST_MODE = False
 
         self.system_repository = Mock()
         self.system_repository.alert_was_sent.return_value = False
@@ -135,6 +136,7 @@ class TestAlertSystem:
         self.alert_system._send_start_alerts.assert_called_once()
         self.alert_system._send_delay_alerts.assert_not_called()
         self.alert_system._send_completion_alerts.assert_not_called()
+
     
     def test_process_activity_delay_alert(self):
         """Test that activity with end_date < today sends delay alert"""
@@ -160,6 +162,7 @@ class TestAlertSystem:
         self.alert_system._send_delay_alerts.assert_called_once()
         self.alert_system._send_start_alerts.assert_not_called()
         self.alert_system._send_completion_alerts.assert_not_called()
+
     
     def test_process_activity_completion_alert(self):
         """Test that completed activity sends completion alert"""
@@ -185,6 +188,7 @@ class TestAlertSystem:
         self.alert_system._send_completion_alerts.assert_called_once()
         self.alert_system._send_start_alerts.assert_not_called()
         self.alert_system._send_delay_alerts.assert_not_called()
+
     
     def test_process_activity_multiple_responsibilities(self):
         """Test that activity with multiple responsibilities sends alerts to all"""
@@ -288,6 +292,31 @@ class TestAlertSystem:
         
         # Check stats
         assert self.alert_system.stats["alerts_start"] == 2
+
+
+    def test_send_start_alerts_does_not_save_history_in_test_mode(self):
+        """Test mode simulates sending without saving production history."""
+        self.config.TEST_MODE = True
+
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = False
+        self.alert_system.email_dispatcher.send_alert_start = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_start_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            start_date="07/10/2026",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+        )
+
+        self.alert_system.email_dispatcher.send_alert_start.assert_called_once()
+        self.system_repository.save_alert_history.assert_not_called()
 
     
     def test_send_start_alerts_with_failure(self):
