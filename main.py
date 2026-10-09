@@ -13,7 +13,7 @@ Usage:
 
 from fastapi import FastAPI
 from src.api import router
-from src.dependencies import get_alert_system, is_ready
+from src.dependencies import get_alert_system
 from src.models import HealthResponse
 
 
@@ -82,8 +82,11 @@ def create_app() -> FastAPI:
         """
         Health check endpoint for Cloud Run and monitoring tools.
         """
-        # Check if system is initialized
-        if not is_ready():
+        # Initialize the system before checking its health
+        try:
+            alert_system = get_alert_system()
+        except Exception as exc:
+            print(f"Falha ao inicializar o sistema: {exc}")
             return HealthResponse(
                 status="degraded",
                 google_sheets_api=False,
