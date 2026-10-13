@@ -165,22 +165,22 @@ class SpreadsheetManager:
 
         # Verificação de Cache
         if not force_reload and spreadsheet_id in self._cache_reseachers:
-            print(f"Usa cache de pesquisadores para {spreadsheet_id}")
+            print("Using cached researchers data")
             return self._cache_reseachers[spreadsheet_id]
 
 
         # Tentativa de abrir planilha
         try:
             spreadsheet = self.client.open_by_key(spreadsheet_id)
-        except Exception as e:
-            raise Exception(f"Erro ao abrir a planilha {spreadsheet_id}: {e}")
+        except Exception:
+            raise RuntimeError("Failed to open control spreadsheet") from None
         
 
         # Acessar aba Pesquisadores
         try:
             reseachers_woorksheet = spreadsheet.worksheet(self.config.RESEARCHERS_WORKSHEET)
-        except Exception as e:
-            raise Exception(f"Aba '{self.config.RESEARCHERS_WORKSHEET}' não encontrada: {e}")
+        except Exception:
+            raise RuntimeError("Failed to access researchers worksheet") from None
         
         # Leitura e processamento de dados
         data = reseachers_woorksheet.get_all_records()
@@ -208,7 +208,7 @@ class SpreadsheetManager:
             if '@' in value and len(value.split('@')) == 2:
                 researchers[key] = value
             else:
-                print(f"Email inválido para {key}: {value}")
+                print("Invalid researcher email found")
 
         
         # Guardar no cache

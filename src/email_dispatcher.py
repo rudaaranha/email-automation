@@ -51,9 +51,10 @@ class EmailDispatcher():
         """
         # Test mode: simulate sending without actually connecting to SMTP
         if self.test_mode:
-            print(f"\n [TEST MODE] Would send email to: {to_email}")
-            print(f"   Subject: {subject}")
-            print(f"   Body preview: {html_body}...")
+            print(
+                "[TEST MODE] Email simulated "
+                f"(subject length: {len(subject)} characters)"
+            )
             return True
 
         # Production mode: actually send the email
@@ -71,17 +72,17 @@ class EmailDispatcher():
                 server.login(self.email, self.password)
                 server.send_message(msg)
 
-            print(f"Email sent successfully to: {to_email}")
+            print("Email sent successfully")
             return True
         
         except smtplib.SMTPAuthenticationError:
-            print(f"Authentication failed. Check your email and app password.")
+            print(f"Authentication failed. Check email configuration.")
             return False
-        except smtplib.SMTPException as e:
-            print(f"SMTP error: {e}")
+        except smtplib.SMTPException:
+            print(f"SMTP error: email delivery failed.")
             return False
-        except Exception as e:
-            print(f"Unexpected error: {e}")
+        except Exception:
+            print(f"Unexpected error: email delivery failed.")
             return False
 
     

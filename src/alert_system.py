@@ -21,21 +21,21 @@ from src.models import AlertHistory, AlertType, ProjectState
 class AlertSystem:
     """
     Core orchestration class for the alert system.
-    
+
     This class coordinates all components to:
     1. Load researchers and activities from Google Sheets
     2. Analyze each activity to determine which alerts are needed
     3. Send appropriate alerts via email
     4. Return statistics about the execution
     """
-    
-    def __init__(self, 
+
+    def __init__(self,
                 config: Optional[Config] = None,
-                system_repository: Optional[SystemRepository] = None, 
+                system_repository: Optional[SystemRepository] = None,
     ):
         """
         Initialize the AlertSystem with configuration.
-        
+
         Args:
             config: Configuration object. If None, creates a new Config instance.
         """
@@ -46,7 +46,7 @@ class AlertSystem:
             system_repository
             or SystemRepository(self.config)
         )
-        
+
         # Statistics tracking
         self.stats = {
             "total_spreadsheets": 0,
@@ -58,7 +58,7 @@ class AlertSystem:
             "alerts_1_day": 0,
             "errors": []
         }
-    
+
     def process_all_spreadsheets(self) -> Dict[str, Any]:
         """
         Process all active projects configured in the control spreadsheet.
@@ -69,7 +69,7 @@ class AlertSystem:
         print("\n" + "="*60)
         print("🚀 STARTING ALERT SYSTEM EXECUTION")
         print("=" * 60)
-        
+
         # Reset statistics
         self._reset_stats()
 
@@ -86,7 +86,7 @@ class AlertSystem:
             f"\n📋 Active projects found: {len(active_projects)}"
         )
 
-        
+
         # Process each active project
         for project_state in active_projects:
             project_name = project_state.project
@@ -94,7 +94,7 @@ class AlertSystem:
 
             print(
                 f"\n📋 Processing project: "
-                f"{project_name.upper()}" 
+                f"{project_name.upper()}"
             )
 
             self._process_single_spreadsheet(
@@ -120,7 +120,7 @@ class AlertSystem:
             "errors": self.stats["errors"],
         }
 
-    
+
     def _reset_stats(self):
         """Reset all statistics counters."""
         self.stats = {
@@ -142,17 +142,17 @@ class AlertSystem:
         if callable(reset_history_cache):
             reset_history_cache()
 
-    
+
     def _process_single_spreadsheet(self, spreadsheet_id: str, project_name: str):
         """
         Process a single spreadsheet.
-        
+
         Args:
             spreadsheet_id: Google Sheets ID
             project_name: Name of the project (for logging)
         """
         today = datetime.now().date()
-        
+
         # Step 1: Load researchers
         try:
             researchers = self.spreadsheet_manager.load_researchers(spreadsheet_id)
@@ -162,7 +162,7 @@ class AlertSystem:
             print(f"   ❌ {error_msg}")
             self.stats["errors"].append(error_msg)
             return
-        
+
         # Step 2: Load activities
         try:
             activities = self.spreadsheet_manager.load_activities(spreadsheet_id)
@@ -173,22 +173,22 @@ class AlertSystem:
             print(f"   ❌ {error_msg}")
             self.stats["errors"].append(error_msg)
             return
-        
+
         # Step 3: Process each activity
         for activity in activities:
             self._process_activity(activity, researchers, project_name, today)
 
-    
+
     def _process_activity(
-            self, 
-            activity: Dict[str, Any], 
+            self,
+            activity: Dict[str, Any],
             researchers: Dict[str, str],
-            project_name: str, 
+            project_name: str,
             today: date
     ):
         """
         Process a single activity and send appropriate alerts.
-        
+
         Args:
             activity: Activity dictionary from spreadsheet_manager
             researchers: Dictionary mapping names to emails
@@ -200,18 +200,18 @@ class AlertSystem:
         start_date = activity.get("data_inicio")
         end_date = activity.get("data_fim")
         responsible_raw = activity.get("responsavel_raw", "")
-        
+
         # Skip activities without a name
         if not activity_name:
             return
-        
+
         # Process multiple responsibilities
         responsible_names = self.spreadsheet_manager._process_responsibles(responsible_raw)
-        
+
         if not responsible_names:
-            print(f"   ⚠️ No responsible for activity: {activity_name}")
+            print("No responsible assigned to activity")
             return
-        
+
         # Find emails for each responsible
         responsible_emails = []
 
@@ -222,23 +222,22 @@ class AlertSystem:
                 responsible_emails.append((name, email))
             else:
                 print(
-                    f"   ⚠️ No email found for: ) "
-                    f"{name} (activity: {activity_name}"
+                    "No email found for a responsible"
             )
-        
+
         if not responsible_emails:
             return
-        
+
         # Check for COMPLETION alert (status changed to "Concluída")
         # Note: In a real system, you'd track previous status
         # For now, we just check if current status is "Concluída"
         if status == "Concluída":
             self._send_completion_alerts(
-                responsible_emails, 
-                activity_name, 
+                responsible_emails,
+                activity_name,
                 project_name,
             )
-        
+
         # Check for START alert (start_date == today)
         elif start_date and start_date == today:
             end_date_str = (
@@ -246,14 +245,14 @@ class AlertSystem:
                 if end_date
                 else "N/A"
             )
-            
+
             start_date_str = start_date.strftime("%d/%m/%Y")
-            
+
             self._send_start_alerts(
-                responsible_emails, 
-                activity_name, 
-                start_date_str, 
-                end_date_str, 
+                responsible_emails,
+                activity_name,
+                start_date_str,
+                end_date_str,
                 project_name,
             )
 
@@ -297,13 +296,13 @@ class AlertSystem:
                     today,
                 )
 
-   
+
     def _send_start_alerts(
-            self, 
-            recipients: List[Tuple[str, str]], 
-            activity_name: str, 
+            self,
+            recipients: List[Tuple[str, str]],
+            activity_name: str,
             start_date: str,
-            end_date: str, 
+            end_date: str,
             project_name: str,
     ):
         """
@@ -329,8 +328,7 @@ class AlertSystem:
 
             if already_sent:
                 print(
-                    f"   ⏭️ Start alert already sent to: "
-                    f"{name} ({email})"
+                    " Start alert already sent; skipping duplicate"
                 )
                 continue
 
@@ -343,7 +341,7 @@ class AlertSystem:
                 end_date=end_date,
                 project_name=project_name
             )
-            
+
             if success:
                 if not self.config.TEST_MODE:
                     # Save history only after successful sending
@@ -360,19 +358,15 @@ class AlertSystem:
                 self.stats["alerts_start"] += 1
 
                 print(
-                    f"   ✅ Start alert sent to: "
-                    f"{name} ({email})"
+                    "   ✅ Start alert processed successfully)"
                 )
 
             else:
                 error_msg = (
-                    f"Failed to send start alert to "
-                    f"{email} for {activity_name}"
+                    "Failed to send start alert"
                 )
-
                 self.stats["errors"].append(error_msg)
-
-                print(f"   ❌ {error_msg}")
+                print(error_msg)
 
 
     def _send_3_days_alerts(
@@ -403,8 +397,7 @@ class AlertSystem:
 
             if already_sent:
                 print(
-                    f"   ⏭️ 3-day reminder already sent to: "
-                    f"{name} ({email})"
+                    "   ⏭️ 3-day reminder processed successfully"
                 )
                 continue
 
@@ -434,18 +427,14 @@ class AlertSystem:
                 self.stats["alerts_3_days"] += 1
 
                 print(
-                    f"   ⏰ 3-day reminder sent to: "
-                    f"{name} ({email})"
+                    "   ⏰ 3-day reminder processed successfully"
                 )
 
             else:
                 error_msg = (
-                    f"Failed to send 3-day reminder to "
-                    f"{email} for {activity_name}"
+                    "Failed to send 3-day reminder"
                 )
-
                 self.stats["errors"].append(error_msg)
-
                 print(f"   ❌ {error_msg}")
 
 
@@ -476,8 +465,7 @@ class AlertSystem:
 
             if already_sent:
                 print(
-                    f"   ⏭️ 1-day reminder already sent to: "
-                    f"{name} ({email})"
+                    "   ⏭️ 1-day reminder processed successfully"
                 )
                 continue
 
@@ -505,33 +493,29 @@ class AlertSystem:
                 self.stats["alerts_1_day"] += 1
 
                 print(
-                    f"   ⚠️ 1-day reminder sent to: "
-                    f"{name} ({email})"
+                    "   ⚠️ 1-day reminder processed successfully"
                 )
 
             else:
                 error_msg = (
-                    f"Failed to send 1-day reminder to "
-                    f"{email} for {activity_name}"
+                    "Failed to send 1-day reminder"
                 )
-
                 self.stats["errors"].append(error_msg)
-
                 print(f"   ❌ {error_msg}")
 
-    
+
     def _send_delay_alerts(
-            self, 
+            self,
             recipients: List[Tuple[str, str]],
-            activity_name: str, 
+            activity_name: str,
             end_date: str,
-            days_delayed: int, 
+            days_delayed: int,
             project_name: str,
             reference_date: date,
     ):
         """
         Send delay alerts to all recipients.
-        
+
         Args:
             recipients: List of (name, email) tuples
             activity_name: Name of the activity
@@ -550,8 +534,7 @@ class AlertSystem:
 
             if already_sent:
                 print(
-                    f"   ⏭️ Delay alert already sent today to: "
-                    f"{name} ({email})"
+                    "   ⏭️ Delay alert already processed successfully"
                 )
                 continue
 
@@ -580,27 +563,25 @@ class AlertSystem:
                 self.stats["alerts_delay"] += 1
 
                 print(
-                    f"   ⚠️ Delay alert sent to: "
-                    f"{name} ({email}) - {days_delayed} days"
+                    "   ⚠️ Delay alert processed successfully"
                 )
 
             else:
                 error_msg = (
-                    f"Failed to send delay alert to "
-                    f"{email} for {activity_name}"
+                    "Failed to send delay alert"
                 )
                 self.stats["errors"].append(error_msg)
                 print(f"   ❌ {error_msg}")
-    
+
     def _send_completion_alerts(
-            self, 
+            self,
             recipients: List[Tuple[str, str]],
-            activity_name: str, 
+            activity_name: str,
             project_name: str,
     ):
         """
         Send completion alerts to all recipients.
-        
+
         Args:
             recipients: List of (name, email) tuples
             activity_name: Name of the activity
@@ -617,8 +598,7 @@ class AlertSystem:
 
             if already_sent:
                 print(
-                    f"   ⏭️ Completion alert already sent to: "
-                    f"{name} ({email})"
+                    "   ⏭️ Completion alert processed successfully"
                 )
                 continue
 
@@ -628,7 +608,7 @@ class AlertSystem:
                     activity_name=activity_name,
                     project_name=project_name,
             )
-                
+
             if success:
                 if not self.config.TEST_MODE:
                     self.system_repository.save_alert_history(
@@ -644,18 +624,17 @@ class AlertSystem:
                 self.stats["alerts_completion"] += 1
 
                 print(
-                    f"   ✅ Completion alert sent to: "
-                    f"{name} ({email})"
+                    "   ✅ Completion alert processed successfully"
                 )
-                    
+
             else:
                 error_msg = (
-                    f"Failed to send completion alert to " 
-                    f"{email} for {activity_name}"
+                    "Failed to send completion alert"
                 )
                 self.stats["errors"].append(error_msg)
                 print(f"   ❌ {error_msg}")
-    
+
+
     def _print_summary(self):
         """Print execution summary."""
         print("\n" + "="*60)
@@ -670,23 +649,23 @@ class AlertSystem:
         print(f"   1-day reminders sent: {self.stats['alerts_1_day']}")
         print(f"   Errors: {len(self.stats['errors'])}")
         print("="*60)
-    
+
     def process_single_project(self, project_name: str) -> Dict[str, Any]:
         """
         Process a single project by name.
 
         The project must be registered in the control spreadsheet.
         Only active projects are processed.
-        
+
         Args:
             project_name: Name of the project in PROJECTS worksheet.
-            
+
         Returns:
             Dictionary with execution statistics
-        """        
+        """
         # Reset statistics
         self._reset_stats()
-        
+
         print("\n" + "="*60)
         print(
             f"🚀 STARTING SINGLE PROJECT: "
