@@ -106,9 +106,13 @@ class TestAlertSystem:
         # load_activities should NOT be called if load_researchers fails
         self.alert_system.spreadsheet_manager.load_activities.assert_not_called()
         
-        # Error should be recorded in stats
+        # Error should be recorded without exposing exception details
         assert len(self.alert_system.stats["errors"]) == 1
-        assert "Connection failed" in self.alert_system.stats["errors"][0]
+        assert (
+            self.alert_system.stats["errors"][0]
+            == "Failed to load researchers"
+        )
+        assert "Connection failed" not in self.alert_system.stats["errors"][0]
     
     def test_process_activity_start_alert(self):
         """Test that activity with start_date = today sends start alert"""

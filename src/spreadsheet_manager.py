@@ -234,15 +234,19 @@ class SpreadsheetManager:
         # Tentativa de abrir planilha
         try:
             spreadsheet = self.client.open_by_key(spreadsheet_id)
-        except Exception as e:
-            raise Exception(f"Erro ao abrir a planilha {spreadsheet_id}: {e}")
+        except Exception:
+            raise RuntimeError(
+                "Failed to open activity spreadsheet"
+            ) from None
         
 
         # Tentativa de abrir a aba de atividades
         try:
             activities_worksheet = spreadsheet.worksheet(self.config.ACTIVITIES_WORKSHEET)
-        except Exception as e:
-            raise Exception(f"Erro ao tentar acessar a aba {self.config.ACTIVITIES_WORKSHEET}: {e}")
+        except Exception:
+            raise RuntimeError(
+                "Failed to access activities worksheet"
+            ) from None
 
         data = activities_worksheet.get_all_records()
         data = self._clean_headers(data)

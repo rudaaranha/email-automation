@@ -157,8 +157,8 @@ class AlertSystem:
         try:
             researchers = self.spreadsheet_manager.load_researchers(spreadsheet_id)
             print(f"   📧 Loaded {len(researchers)} researchers")
-        except Exception as e:
-            error_msg = f"Failed to load researchers for {project_name}: {e}"
+        except Exception:
+            error_msg = f"Failed to load researchers"
             print(f"   ❌ {error_msg}")
             self.stats["errors"].append(error_msg)
             return
@@ -168,8 +168,8 @@ class AlertSystem:
             activities = self.spreadsheet_manager.load_activities(spreadsheet_id)
             print(f"   📊 Loaded {len(activities)} activities")
             self.stats["total_activities"] += len(activities)
-        except Exception as e:
-            error_msg = f"Failed to load activities for {project_name}: {e}"
+        except Exception:
+            error_msg = f"Failed to load activities"
             print(f"   ❌ {error_msg}")
             self.stats["errors"].append(error_msg)
             return
@@ -358,7 +358,7 @@ class AlertSystem:
                 self.stats["alerts_start"] += 1
 
                 print(
-                    "   ✅ Start alert processed successfully)"
+                    f"Start alert {'simulated' if self.config.TEST_MODE else 'sent'} successfully"
                 )
 
             else:
@@ -397,7 +397,7 @@ class AlertSystem:
 
             if already_sent:
                 print(
-                    "   ⏭️ 3-day reminder processed successfully"
+                    "3-day reminder already sent; skipping duplicate"
                 )
                 continue
 
@@ -427,7 +427,7 @@ class AlertSystem:
                 self.stats["alerts_3_days"] += 1
 
                 print(
-                    "   ⏰ 3-day reminder processed successfully"
+                    f"3-day reminder {'simulated' if self.config.TEST_MODE else 'sent'} successfully"
                 )
 
             else:
@@ -465,7 +465,7 @@ class AlertSystem:
 
             if already_sent:
                 print(
-                    "   ⏭️ 1-day reminder processed successfully"
+                    "1-day reminder already sent, skipping duplicate"
                 )
                 continue
 
@@ -493,7 +493,7 @@ class AlertSystem:
                 self.stats["alerts_1_day"] += 1
 
                 print(
-                    "   ⚠️ 1-day reminder processed successfully"
+                    f"1-day reminder {'simulated' if self.config.TEST_MODE else 'sent'} successfully"
                 )
 
             else:
@@ -563,7 +563,7 @@ class AlertSystem:
                 self.stats["alerts_delay"] += 1
 
                 print(
-                    "   ⚠️ Delay alert processed successfully"
+                    f"Delay alert {'simulated' if self.config.TEST_MODE else 'sent'} successfully"
                 )
 
             else:
@@ -598,7 +598,7 @@ class AlertSystem:
 
             if already_sent:
                 print(
-                    "   ⏭️ Completion alert processed successfully"
+                    "Completion alert already sent; skipping duplicate"
                 )
                 continue
 
@@ -624,7 +624,7 @@ class AlertSystem:
                 self.stats["alerts_completion"] += 1
 
                 print(
-                    "   ✅ Completion alert processed successfully"
+                    f"Completion alert {'simulated' if self.config.TEST_MODE else 'sent'} successfully"
                 )
 
             else:
@@ -637,18 +637,40 @@ class AlertSystem:
 
     def _print_summary(self):
         """Print execution summary."""
-        print("\n" + "="*60)
-        print("📊 EXECUTION SUMMARY")
-        print("="*60)
-        print(f"   Spreadsheets processed: {self.stats['total_spreadsheets']}")
-        print(f"   Total activities: {self.stats['total_activities']}")
-        print(f"   Start alerts sent: {self.stats['alerts_start']}")
-        print(f"   Delay alerts sent: {self.stats['alerts_delay']}")
-        print(f"   Completion alerts sent: {self.stats['alerts_completion']}")
-        print(f"   3-day reminders sent: {self.stats['alerts_3_days']}")
-        print(f"   1-day reminders sent: {self.stats['alerts_1_day']}")
+        mode = (
+            "SIMULATION"
+            if self.config.TEST_MODE
+            else "PRODUCTION"
+        )
+
+        print("\n" + "=" * 60)
+        print(f"EXECUTION SUMMARY - {mode}")
+        print("=" * 60)
+        print(
+            f"   Spreadsheets processed: "
+            f"{self.stats['total_spreadsheets']}"
+        )
+        print(
+            f"   Total activities: "
+            f"{self.stats['total_activities']}"
+        )
+        print(f"   Start alerts processed: {self.stats['alerts_start']}")
+        print(f"   Delay alerts processed: {self.stats['alerts_delay']}")
+        print(
+            f"   Completion alerts processed: "
+            f"{self.stats['alerts_completion']}"
+        )
+        print(
+            f"   3-day reminders processed: "
+            f"{self.stats['alerts_3_days']}"
+        )
+        print(
+            f"   1-day reminders processed: "
+            f"{self.stats['alerts_1_day']}"
+        )
         print(f"   Errors: {len(self.stats['errors'])}")
-        print("="*60)
+        print("=" * 60)
+
 
     def process_single_project(self, project_name: str) -> Dict[str, Any]:
         """
@@ -668,8 +690,7 @@ class AlertSystem:
 
         print("\n" + "="*60)
         print(
-            f"🚀 STARTING SINGLE PROJECT: "
-            f"{project_name.upper()}"
+            "Starting single project execution"
         )
         print("="*60)
 

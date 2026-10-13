@@ -215,7 +215,7 @@ async def execute_alerts(
         raise
     except Exception:
         # Catch any unexpected errors
-        logger.exception("Unexpected error while executing alert system")
+        logger.error("Unexpected error while executing alert system")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro interno ao executar o sistema de alertas."
