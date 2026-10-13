@@ -14,6 +14,7 @@ Endpoints:
 """
 
 from datetime import datetime
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from src.dependencies import get_alert_system, get_system_status, is_ready
@@ -26,6 +27,9 @@ from src.models import (
     ErrorResponse,
     ExecutionMode
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================
@@ -211,6 +215,7 @@ async def execute_alerts(
         raise
     except Exception:
         # Catch any unexpected errors
+        logger.exception("Unexpected error while executing alert system")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro interno ao executar o sistema de alertas."
