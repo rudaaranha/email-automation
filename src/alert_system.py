@@ -133,6 +133,15 @@ class AlertSystem:
             "alerts_1_day": 0,
             "errors": []
         }
+
+        reset_history_cache = getattr(
+            self.system_repository,
+            "reset_alert_history_cache",
+            None,
+        )
+        if callable(reset_history_cache):
+            reset_history_cache()
+
     
     def _process_single_spreadsheet(self, spreadsheet_id: str, project_name: str):
         """

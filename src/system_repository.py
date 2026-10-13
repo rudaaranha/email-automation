@@ -1,4 +1,4 @@
-from datetime import date, datetime
+﻿from datetime import date, datetime
 from typing import List, Optional
 
 import gspread
@@ -9,7 +9,7 @@ from src.google_auth import authenticate_google_sheets
 
 
 class SystemRepository:
-    """Persistência dos estados dos projetos e histórico de alertas."""
+    """PersistÃªncia dos estados dos projetos e histÃ³rico de alertas."""
 
     PROJECTS_WORKSHEET = "PROJECTS"
     ALERT_HISTORY_WORKSHEET = "ALERT_HISTORY"
@@ -34,6 +34,9 @@ class SystemRepository:
     def __init__(self, config: Config = None):
         self.config = config or Config()
         self.client = self._authenticate()
+        self._control_spreadsheet_cache = None
+        self._worksheet_cache = {}
+        self._alert_history_records = None
 
 
     def _authenticate(self):
@@ -42,38 +45,59 @@ class SystemRepository:
 
 
     def _get_control_spreadsheet(self):
-        """Retorna a planilha central de controle."""
+        """Retorna a planilha central de controle, reutilizando a conexÃ£o aberta."""
 
         if not self.config.CONTROL_SPREADSHEET_ID:
             raise ValueError(
-                "SPREADSHEET_ID_CONTROL não está configurado."
+                "SPREADSHEET_ID_CONTROL nÃ£o estÃ¡ configurado."
             )
 
+
+        cached = getattr(self, "_control_spreadsheet_cache", None)
+        if cached is not None:
+            return cached
+
         try:
-            return self.client.open_by_key(
+            spreadsheet = self.client.open_by_key(
                 self.config.CONTROL_SPREADSHEET_ID
             )
+            self._control_spreadsheet_cache = spreadsheet
+            return spreadsheet
+
         except Exception as e:
             raise Exception(
                 "Erro ao abrir a planilha de controle: "
                 f"{self.config.CONTROL_SPREADSHEET_ID}: {e}"
             )
 
+
     def _get_worksheet(self, worksheet_name: str):
-        """Retorna uma aba da planilha de controle."""
+        """Retorna uma aba em cache ou a busca em uma Ãºnica vez."""
+
+        cache = getattr(self, "_worksheet_cache", None)
+        if cache is None:
+            cache = {}
+            self._worksheet_cache = cache
+
+        if worksheet_name in cache:
+            return cache[worksheet_name]
 
         spreadsheet = self._get_control_spreadsheet()
 
         try:
-            return spreadsheet.worksheet(worksheet_name)
+            worksheet = spreadsheet.worksheet(worksheet_name)
         except gspread.WorksheetNotFound:
             raise ValueError(
-                f"Aba '{worksheet_name}' não encontrada "
+                f"Aba '{worksheet_name}' nÃ£o encontrada "
                 "na planilha de controle."
             )
 
+        cache[worksheet_name] = worksheet
+        return worksheet
+
+
     def ensure_control_worksheets(self) -> None:
-        """Garante que as abas de controle existam com os cabeçalhos esperados."""
+        """Garante que as abas de controle existam com os cabeÃ§alhos esperados."""
 
         spreadsheet = self._get_control_spreadsheet()
 
@@ -191,7 +215,7 @@ class SystemRepository:
             )
 
         return active_projects
-    
+
 
     def save_project_state(self, state: ProjectState) -> None:
         """Salva ou atualiza o estado de um projeto."""
@@ -218,11 +242,11 @@ class SystemRepository:
 
     def sync_completed_projects(self) -> None:
         """
-        Registra automaticamente a data de conclusão dos projetos
+        Registra automaticamente a data de conclusÃ£o dos projetos
         que foram desativados manualmente.
 
         O operador controla apenas o campo `active`.
-        Quando active=FALSE e completed_at está vazio,
+        Quando active=FALSE e completed_at estÃ¡ vazio,
         o sistema registra a data/hora atual.
         """
         worksheet = self._get_worksheet(self.PROJECTS_WORKSHEET)
@@ -246,10 +270,10 @@ class SystemRepository:
                 f"A{index}:D{index}",
                 [values],
             )
-    
+
 
     def mark_project_completed(self, project: str) -> bool:
-        """Marca um projeto como concluído."""
+        """Marca um projeto como concluÃ­do."""
 
         state = self.get_project_state(project)
 
@@ -262,18 +286,29 @@ class SystemRepository:
         self.save_project_state(state)
         return True
 
-    def alert_was_sent(
-        self,
-        project: str,
-        activity: str,
-        researcher: str,
-        alert_type: AlertType,
-        reference_date: Optional[date] = None,
-    ) -> bool:
-        """Verifica se um alerta já foi enviado."""
+    def reset_alert_history_cache(self) -> None:
+        """Invalida o histÃ³rico para iniciar uma nova execuÃ§Ã£o."""
+        self._alert_history_records = None
 
-        worksheet = self._get_worksheet(self.ALERT_HISTORY_WORKSHEET)
-        records = worksheet.get_all_records()
+
+    def alert_was_sent(
+            self,
+            project: str,
+            activity: str,
+            researcher: str,
+            alert_type: AlertType,
+            reference_date: Optional[date] = None,
+    ) -> bool:
+        """Verifica em memÃ³ria se um alerta jÃ¡ foi enviado"""
+
+        records = getattr(self, "_alert_history_records", None)
+
+        if records is None:
+            worksheet = self._get_worksheet(
+                self.ALERT_HISTORY_WORKSHEET
+            )
+            records = worksheet.get_all_records()
+            self._alert_history_records = records
 
         for row in records:
             if (
@@ -292,35 +327,52 @@ class SystemRepository:
 
         return False
 
+
     def save_alert_history(self, history: AlertHistory) -> None:
-        """Registra um alerta enviado."""
+        """Registra o alerta e atualiza o cache em memÃ³ria."""
 
-        worksheet = self._get_worksheet(self.ALERT_HISTORY_WORKSHEET)
+        worksheet = self._get_worksheet(
+            self.ALERT_HISTORY_WORKSHEET
+        )
 
-        worksheet.append_row(
-            [
+        reference_date = (
+            history.reference_date.isoformat()
+            if history.reference_date
+            else ""
+        )
+
+        values = [
                 history.project,
                 history.activity,
                 history.researcher,
                 history.email,
                 history.alert_type.value,
                 history.sent_at.isoformat(),
-                (
-                    history.reference_date.isoformat()
-                    if history.reference_date
-                    else ""
-                ),
-            ]
-        )
+                reference_date,
+        ]
+
+        worksheet.append_row(values)
+
+        records = getattr(self, "_alert_history_records", None)
+        if records is not None:
+            records.append({
+                "project": history.project,
+                "activity": history.activity,
+                "researcher": history.researcher,
+                "email": history.email,
+                "alert_type": history.alert_type.value,
+                "sent_at": history.sent_at.isoformat(),
+                "reference_date": reference_date,
+            })
 
 
     def sync_completed_projects(self) -> None:
         """
-        Registra automaticamente a data de conclusão dos projetos
+        Registra automaticamente a data de conclusÃ£o dos projetos
         que foram desativados manualmente.
 
         O operador controla apenas o campo `active`.
-        Quando active=FALSE e completed_at está vazio,
+        Quando active=FALSE e completed_at estÃ¡ vazio,
         o sistema registra a data/hora atual.
         """
         worksheet = self._get_worksheet(self.PROJECTS_WORKSHEET)

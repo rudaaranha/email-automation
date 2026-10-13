@@ -234,7 +234,7 @@ class TestSaveProjectState:
         repository.mark_project_completed("projeto_teste")
 
         worksheet.update.assert_called_once()
-        
+
         args = worksheet.update.call_args
 
         assert args[0][0] == "A2:D2"
@@ -314,7 +314,7 @@ class TestSaveProjectState:
 
         worksheet.update.assert_not_called()
 
-        
+
 class TestAlertHistory:
     """Tests for alert history persistence."""
 
@@ -396,6 +396,7 @@ class TestAlertHistory:
             reference_date=date(2026, 10, 1),
         ) is False
 
+
     def test_save_alert_history(self):
         repository = SystemRepository.__new__(SystemRepository)
 
@@ -428,6 +429,94 @@ class TestAlertHistory:
                 reference_date.isoformat(),
             ]
         )
+
+
+    def test_alert_history_is_loaded_only_once(self):
+        repository = SystemRepository.__new__(SystemRepository)
+
+        worksheet = Mock()
+        worksheet.get_all_records.return_value = [
+            {
+                "project": "projeto_teste",
+                "activity": "Atividade 1",
+                "researcher": "JOÃO",
+                "email": "joao@email.com",
+                "alert_type": "conclusao",
+                "sent_at": "2026-09-30T10:00:00",
+                "reference_date": "",
+            }
+        ]
+        repository._get_worksheet = Mock(return_value=worksheet)
+
+        first_result = repository.alert_was_sent(
+            project="projeto_teste",
+            activity="Atividade 1",
+            researcher="JOÃO",
+            alert_type=AlertType.CONCLUSAO,
+        )
+        second_result = repository.alert_was_sent(
+            project="outro_projeto",
+            activity="Atividade 2",
+            researcher="MARIA",
+            alert_type=AlertType.CONCLUSAO,
+        )
+
+        assert first_result is True
+        assert second_result is False
+        worksheet.get_all_records.assert_called_once_with()
+        repository._get_worksheet.assert_called_once_with(
+            SystemRepository.ALERT_HISTORY_WORKSHEET
+        )
+
+
+    def test_save_alert_history_updates_loaded_cache(self):
+        repository = SystemRepository.__new__(SystemRepository)
+        repository._alert_history_records = []
+
+        worksheet = Mock()
+        repository._get_worksheet = Mock(return_value=worksheet)
+
+        history = AlertHistory(
+            project="projeto_teste",
+            activity="Atividade 1",
+            researcher="JOÃO",
+            email="joao@email.com",
+            alert_type=AlertType.ATRASO,
+            sent_at=datetime(2026, 9, 30, 9, 0),
+            reference_date=date(2026, 9, 30),
+        )
+
+        repository.save_alert_history(history)
+
+        assert len(repository._alert_history_records) == 1
+        assert repository._alert_history_records[0]["project"] == (
+            "projeto_teste"
+        )
+        assert repository._alert_history_records[0]["alert_type"] == (
+            AlertType.ATRASO.value
+        )
+
+        # O histórico salvo deve ser encontrado sem nova leitura da API.
+        repository.alert_was_sent(
+            project="projeto_teste",
+            activity="Atividade 1",
+            researcher="JOÃO",
+            alert_type=AlertType.ATRASO,
+            reference_date=date(2026, 9, 30),
+        )
+
+        worksheet.get_all_records.assert_not_called()
+
+
+    def test_reset_alert_history_cache_invalidates_cache(self):
+        repository = SystemRepository.__new__(SystemRepository)
+        repository._alert_history_records = [
+            {"project": "projeto_teste"}
+        ]
+
+        repository.reset_alert_history_cache()
+
+        assert repository._alert_history_records is None
 
 
 class TestEnsureControlWorksheets:
@@ -557,3 +646,38 @@ class TestEnsureControlWorksheets:
         )
 
         alert_history_worksheet.update.assert_not_called()
+
+
+class TestGetWorksheetCache:
+    """Tests for worksheet caching."""
+
+    def test_reuses_cached_worksheet(self):
+        repository = SystemRepository.__new__(SystemRepository)
+        repository.config = Mock()
+        repository.config.CONTROL_SPREADSHEET_ID = "control-sheet-id"
+        repository.client = Mock()
+        repository._control_spreadsheet_cache = None
+        repository._worksheet_cache = {}
+
+        spreadsheet = Mock()
+        worksheet = Mock()
+
+        repository.client.open_by_key.return_value = spreadsheet
+        spreadsheet.worksheet.return_value = worksheet
+
+        first_result = repository._get_worksheet(
+            SystemRepository.ALERT_HISTORY_WORKSHEET
+        )
+        second_result = repository._get_worksheet(
+            SystemRepository.ALERT_HISTORY_WORKSHEET
+        )
+
+        assert first_result is worksheet
+        assert second_result is worksheet
+
+        repository.client.open_by_key.assert_called_once_with(
+            "control-sheet-id"
+        )
+        spreadsheet.worksheet.assert_called_once_with(
+            SystemRepository.ALERT_HISTORY_WORKSHEET
+        )
