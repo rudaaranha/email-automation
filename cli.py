@@ -13,6 +13,7 @@ Usage:
     python cli.py --once --test --project sensor_diabetes  # Combine options
     python cli.py --schedule             # Run with scheduling (like main.py)
     python cli.py --help                 # Show this help message
+    python cli.py --complete --project sensor_diabetes  # Mark project as completed
 
 Examples:
     # Run all projects in test mode
@@ -23,6 +24,9 @@ Examples:
 
     # Schedule execution (runs at 9:00 and 14:00)
     python cli.py --schedule
+
+    # Mark a project as completed
+    python cli.py --complete --project sensor_diabetes
 """
 
 import argparse
@@ -36,6 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.alert_system import AlertSystem
 from src.config import Config
+from src.system_repository import SystemRepository
 
 
 # ============================================
@@ -132,6 +137,43 @@ def run_once(test_mode: bool = False, project_name: str = None):
     return 0
 
 
+def complete_project(project_name: str):
+    """
+    Mark a project as completed in the control spreadsheet.
+
+    A completed project becomes inactive and will no longer
+    be processed by the alert system.
+    """
+    print_header()
+    print(f"✅ Marcando projeto como concluído: {project_name}")
+    print("-" * 60)
+
+    config = Config()
+    repository = SystemRepository(config)
+
+    project_state = repository.get_project_state(project_name)
+
+    if project_state is None:
+        print(f"❌ Projeto não encontrado: {project_name}")
+        return 1
+
+    if not project_state.active:
+        print(f"⏸️ Projeto já está inativo: {project_name}")
+        return 0
+
+    success = repository.mark_project_completed(project_name)
+
+    if not success:
+        print(f"❌ Não foi possível concluir o projeto: {project_name}")
+        return 1
+
+    print(f"✅ Projeto concluído com sucesso: {project_name}")
+    print("   active = FALSE")
+    print("   completed_at = registrado")
+
+    return 0
+
+
 def run_schedule():
     """
     Run the alert system with scheduling (like main.py).
@@ -214,6 +256,12 @@ Exemplos:
         type=str,
         help="Nome do projeto específico para processar"
     )
+
+    parser.add_argument(
+        "--complete",
+        action="store_true",
+        help="Marca o projeto como concluído e o desativa"
+    )
     
     parser.add_argument(
         "--schedule",
@@ -229,7 +277,11 @@ Exemplos:
         return 0
     
     # Execute based on arguments
-    if args.schedule:
+    if args.complete:
+        if not args.project:
+            parser.error("--complete requer --project")
+        return complete_project(args.project)
+    elif args.schedule:
         return run_schedule()
     elif args.once:
         return run_once(test_mode=args.test, project_name=args.project)

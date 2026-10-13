@@ -13,7 +13,7 @@ Usage:
 
 from fastapi import FastAPI
 from src.api import router
-from src.dependencies import get_alert_system, is_ready
+from src.dependencies import get_alert_system
 from src.models import HealthResponse
 
 
@@ -82,8 +82,11 @@ def create_app() -> FastAPI:
         """
         Health check endpoint for Cloud Run and monitoring tools.
         """
-        # Check if system is initialized
-        if not is_ready():
+        # Initialize the system before checking its health
+        try:
+            alert_system = get_alert_system()
+        except Exception as exc:
+            print(f"Falha ao inicializar o sistema: {exc}")
             return HealthResponse(
                 status="degraded",
                 google_sheets_api=False,
@@ -99,20 +102,28 @@ def create_app() -> FastAPI:
         google_sheets_ok = True
         
         try:
-            for project_name, sheet_id in alert_system.config.SPREADSHEETS.items():
-                if sheet_id:
+            # Only check active projects from the control spreadsheet
+            active_projects = (
+                alert_system.system_repository.get_active_projects()
+            )
+
+            for project in active_projects:
                     try:
-                        alert_system.spreadsheet_manager.client.open_by_key(sheet_id)
-                        sheets_accessible.append(project_name)
+                        alert_system.spreadsheet_manager.client.open_by_key(
+                            project.spreadsheet_id
+                        )
+                        sheets_accessible.append(project.project)
+
                     except Exception:
                         google_sheets_ok = False
+
         except Exception:
             google_sheets_ok = False
         
         # Check SMTP configuration
         smtp_ok = (
-            alert_system.config.EMAIL_NATS is not None and
-            alert_system.config.SENHA_APP_NATS is not None
+            alert_system.config.EMAIL_NATS is not None 
+            and alert_system.config.SENHA_APP_NATS is not None
         )
         
         status = "ok" if (google_sheets_ok and smtp_ok) else "degraded"

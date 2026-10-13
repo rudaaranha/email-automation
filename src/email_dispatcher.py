@@ -141,7 +141,7 @@ class EmailDispatcher():
             f"{activity_name} - {project_name}"
         )
 
-        html_body = self.templates.alert_three_days(
+        html_body = self.templates.alert_3_days(
             responsible_name=responsible_name,
             activity_name=activity_name,
             end_date=end_date,

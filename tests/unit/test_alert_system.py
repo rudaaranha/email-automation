@@ -23,6 +23,7 @@ class TestAlertSystem:
         """Setup before each test"""
 
         self.config = Config()
+        self.config.TEST_MODE = False
 
         self.system_repository = Mock()
         self.system_repository.alert_was_sent.return_value = False
@@ -37,30 +38,39 @@ class TestAlertSystem:
     def test_process_all_spreadsheets_calls_all_projects(self):
         """Test that process_all_spreadsheets processes each configured project"""
         # Mock the config to have multiple projects
-        self.config.SPREADSHEETS = {
-            "projeto1": "id_123",
-            "projeto2": "id_456"
-        }
-        
+        self.system_repository.get_active_projects.return_value = [
+            ProjectState(
+                project="projeto1",
+                spreadsheet_id="id_123",
+                active=True,
+            ),
+            ProjectState(
+                project="projeto2",
+                spreadsheet_id="id_456",
+                active=True,
+            ),
+        ]
+                
         # Mock the _process_single_spreadsheet method
         self.alert_system._process_single_spreadsheet = Mock()
         
         result = self.alert_system.process_all_spreadsheets()
-        
-        # Should have been called twice (once per project)
-        assert self.alert_system._process_single_spreadsheet.call_count == 2
-        
-        # Check call arguments
-        calls = self.alert_system._process_single_spreadsheet.call_args_list
-        assert calls[0][0][0] == "id_123"  # first call spreadsheet_id
-        assert calls[0][0][1] == "projeto1"  # first call project_name
-        assert calls[1][0][0] == "id_456"  # second call spreadsheet_id
-        assert calls[1][0][1] == "projeto2"  # second call project_name
-        
-        # Check result structure
-        assert "total_spreadsheets" in result
-        assert "total_activities" in result
-        assert "alerts_sent" in result
+
+        assert(
+            self.alert_system._process_single_spreadsheet.call_count == 2
+        )
+
+        self.alert_system._process_single_spreadsheet.assert_any_call(
+            "id_123",
+            "projeto1",
+        )
+
+        self.alert_system._process_single_spreadsheet.assert_any_call(
+            "id_456",
+            "projeto2",
+        )
+        assert result["total_spreadsheets"] == 2
+
     
     def test_process_single_spreadsheet_loads_researchers_and_activities(self):
         """Test that _process_single_spreadsheet loads researchers and activities"""
@@ -126,6 +136,7 @@ class TestAlertSystem:
         self.alert_system._send_start_alerts.assert_called_once()
         self.alert_system._send_delay_alerts.assert_not_called()
         self.alert_system._send_completion_alerts.assert_not_called()
+
     
     def test_process_activity_delay_alert(self):
         """Test that activity with end_date < today sends delay alert"""
@@ -151,6 +162,7 @@ class TestAlertSystem:
         self.alert_system._send_delay_alerts.assert_called_once()
         self.alert_system._send_start_alerts.assert_not_called()
         self.alert_system._send_completion_alerts.assert_not_called()
+
     
     def test_process_activity_completion_alert(self):
         """Test that completed activity sends completion alert"""
@@ -176,6 +188,7 @@ class TestAlertSystem:
         self.alert_system._send_completion_alerts.assert_called_once()
         self.alert_system._send_start_alerts.assert_not_called()
         self.alert_system._send_delay_alerts.assert_not_called()
+
     
     def test_process_activity_multiple_responsibilities(self):
         """Test that activity with multiple responsibilities sends alerts to all"""
@@ -279,6 +292,31 @@ class TestAlertSystem:
         
         # Check stats
         assert self.alert_system.stats["alerts_start"] == 2
+
+
+    def test_send_start_alerts_does_not_save_history_in_test_mode(self):
+        """Test mode simulates sending without saving production history."""
+        self.config.TEST_MODE = True
+
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        self.system_repository.alert_was_sent.return_value = False
+        self.alert_system.email_dispatcher.send_alert_start = Mock(
+            return_value=True
+        )
+
+        self.alert_system._send_start_alerts(
+            recipients=recipients,
+            activity_name="Entrega de relatório",
+            start_date="07/10/2026",
+            end_date="10/10/2026",
+            project_name="Projeto Teste",
+        )
+
+        self.alert_system.email_dispatcher.send_alert_start.assert_called_once()
+        self.system_repository.save_alert_history.assert_not_called()
 
     
     def test_send_start_alerts_with_failure(self):
@@ -1023,7 +1061,44 @@ class TestAlertSystem:
 
         # Verifica a estatística
         assert self.alert_system.stats["alerts_delay"] == 1
-        
+
+
+    def test_send_delay_alerts_allows_new_alert_on_next_day(self):
+        """Test that delay alert can be sent again on a different day."""
+        recipients = [
+            ("JOÃO", "joao@email.com"),
+        ]
+
+        self.alert_system.email_dispatcher.send_alert_delay = Mock(
+            return_value=True
+        )
+
+        # Alert was already sent on the previous day.
+        def alert_was_sent(**kwargs):
+            return kwargs["reference_date"] == date(2026, 10, 8)
+
+        self.system_repository.alert_was_sent.side_effect = alert_was_sent
+
+        self.alert_system._send_delay_alerts(
+            recipients=recipients,
+            activity_name="Atividade Teste",
+            end_date="05/10/2026",
+            days_delayed=4,
+            project_name="Projeto Teste",
+            reference_date=date(2026, 10, 9),
+        )
+
+        self.alert_system.email_dispatcher.send_alert_delay.assert_called_once()
+
+        self.system_repository.save_alert_history.assert_called_once()
+
+        history = self.system_repository.save_alert_history.call_args[0][0]
+
+        assert history.reference_date == date(2026, 10, 9)
+        assert history.alert_type == AlertType.ATRASO
+
+        assert self.alert_system.stats["alerts_delay"] == 1
+          
     
     def test_send_completion_alerts(self):
         """Test that send_completion_alerts sends emails to all recipients"""
@@ -1039,41 +1114,60 @@ class TestAlertSystem:
         
         self.alert_system.email_dispatcher.send_alert_completion.assert_called_once()
         assert self.alert_system.stats["alerts_completion"] == 1
+
     
     def test_process_single_project_by_name(self):
-        """Test that process_single_project processes a specific project by name"""
-        self.config.SPREADSHEETS = {
-            "sensor_diabetes": "id_123",
-            "outro_projeto": "id_456"
-        }
+        """Test processing a single project from PROJECTS"""
+        self.system_repository.get_project_state.return_value = ProjectState(
+            project="projeto1",
+            spreadsheet_id="id_123",
+            active=True,
+        )
         
         # Mock _process_single_spreadsheet
         self.alert_system._process_single_spreadsheet = Mock()
         
-        result = self.alert_system.process_single_project("sensor_diabetes")
+        result = self.alert_system.process_single_project(
+            "projeto1"
+        )
         
         # Should have been called once with correct ID
-        self.alert_system._process_single_spreadsheet.assert_called_once_with("id_123", "sensor_diabetes")
+        self.system_repository.get_project_state.assert_called_once_with(
+            "projeto1"
+        )
         
-        assert result["project"] == "sensor_diabetes"
+        self.alert_system._process_single_spreadsheet.assert_called_once_with(
+            "id_123", 
+            "projeto1",
+        )
+        
+        assert result["project"] == "projeto1"
+        assert result["total_spreadsheets"] == 1
 
     
     def test_process_single_project_not_found(self):
-        """Test that process_single_project returns error for unknown project"""
-        self.config.SPREADSHEETS = {"projeto1": "id_123"}
-        
-        result = self.alert_system.process_single_project("projeto_inexistente")
+        """Test that an unknown project returns an error."""
+        self.system_repository.get_project_state.return_value = None
+
+        self.alert_system._process_single_spreadsheet = Mock()
+      
+        result = self.alert_system.process_single_project(
+            "projeto_inexistente"
+        )
         
         assert "error" in result
-        assert "not found" in result["error"]
+
+        assert (
+            result["error"]
+            == "Project 'projeto_inexistente' not found in control spreadsheet"
+        )
+
+        self.alert_system._process_single_spreadsheet.assert_not_called()
 
 
     def test_process_single_project_respects_active_true(self):
         """Test that an active project is processed."""
-        self.config.SPREADSHEETS = {
-            "projeto_ativo": "id_123"
-        }
-
+        
         self.system_repository.get_project_state.return_value = ProjectState(
             project="projeto_ativo",
             spreadsheet_id="id_123",
@@ -1096,10 +1190,7 @@ class TestAlertSystem:
 
     def test_process_single_project_skips_inactive_project(self):
         """Test that an inactive project is not processed."""
-        self.config.SPREADSHEETS = {
-            "projeto_inativo": "id_123"
-        }
-
+        
         self.system_repository.get_project_state.return_value = ProjectState(
             project="projeto_inativo",
             spreadsheet_id="id_123",
@@ -1123,100 +1214,40 @@ class TestAlertSystem:
         assert result["alerts_sent"]["3_days"] == 0
         assert result["alerts_sent"]["1_day"] == 0
 
-
-    def test_process_single_project_registers_new_project_as_active(self):
-        """Test that a new project is registered as active."""
-        self.config.SPREADSHEETS = {
-            "projeto_novo": "id_123"
-        }
-
-        self.system_repository.get_project_state.return_value = None
-
-        self.alert_system._process_single_spreadsheet = Mock()
-
-        result = self.alert_system.process_single_project(
-            "projeto_novo"
-        )
-
-        self.system_repository.save_project_state.assert_called_once()
-
-        saved_state = (
-            self.system_repository.save_project_state.call_args[0][0]
-        )
-
-        assert saved_state.project == "projeto_novo"
-        assert saved_state.spreadsheet_id == "id_123"
-        assert saved_state.active is True
-
-        self.alert_system._process_single_spreadsheet.assert_called_once_with(
-            "id_123",
-            "projeto_novo",
-        )
-
-        assert result["project"] == "projeto_novo"
-
-
-
-
-
-
-
-
-    
+   
     def test_stats_reset_between_executions(self):
         """Test that statistics are reset between process executions"""
-        self.config.SPREADSHEETS = {"projeto1": "id_123"}
-        
-        # Mock methods
+        self.system_repository.get_active_projects.return_value = [
+            ProjectState(
+                project="projeto1",
+                spreadsheet_id="id_123",
+                active=True,
+            )
+        ]
+
         self.alert_system._process_single_spreadsheet = Mock()
-        
+
         # First execution
         self.alert_system.process_all_spreadsheets()
+
+        # Simulate alerts from the first execution
         self.alert_system.stats["alerts_start"] = 5
-        
-        # Second execution should reset stats
+
+        # Second execution
         self.alert_system.process_all_spreadsheets()
+
+        # Statistics must have been reset
         assert self.alert_system.stats["alerts_start"] == 0
         assert self.alert_system.stats["alerts_delay"] == 0
         assert self.alert_system.stats["alerts_completion"] == 0
+        assert self.alert_system.stats["alerts_3_days"] == 0
+        assert self.alert_system.stats["alerts_1_day"] == 0
         assert len(self.alert_system.stats["errors"]) == 0
-
-    def test_new_project_is_registered_as_active(self):
-        self.config.SPREADSHEETS = {
-            "projeto_novo": "id_123"
-        }
-
-        self.system_repository.get_project_state.return_value = None
-        self.alert_system._process_single_spreadsheet = Mock()
-
-        self.alert_system.process_all_spreadsheets()
-
-        self.system_repository.save_project_state.assert_called_once()
-
-        saved_state = (
-            self.system_repository.save_project_state.call_args[0][0]
-        )
-
-        assert saved_state.project == "projeto_novo"
-        assert saved_state.spreadsheet_id == "id_123"
-        assert saved_state.active is True
-
-        self.alert_system._process_single_spreadsheet.assert_called_once_with(
-            "id_123",
-            "projeto_novo",
-        )
 
 
     def test_inactive_project_is_not_processed(self):
-        self.config.SPREADSHEETS = {
-            "projeto_inativo": "id_123"
-        }
-
-        self.system_repository.get_project_state.return_value = ProjectState(
-            project="projeto_inativo",
-            spreadsheet_id="id_123",
-            active=False,
-        )
+        """Test that inactive projects are not processed."""
+        self.system_repository.get_active_projects.return_value = []
 
         self.alert_system._process_single_spreadsheet = Mock()
 
@@ -1228,43 +1259,43 @@ class TestAlertSystem:
 
 
     def test_active_project_is_processed(self):
-        self.config.SPREADSHEETS = {
-            "projeto_ativo": "id_123"
-        }
-
-        self.system_repository.get_project_state.return_value = ProjectState(
-            project="projeto_ativo",
-            spreadsheet_id="id_123",
-            active=True,
-        )
-
+        """Test that active projects are processed."""
+        self.system_repository.get_active_projects.return_value = [
+            ProjectState(
+                project="projeto_ativo",
+                spreadsheet_id="id_123",
+                active=True,
+            )    
+        ]
+        
         self.alert_system._process_single_spreadsheet = Mock()
 
-        self.alert_system.process_all_spreadsheets()
+        result = self.alert_system.process_all_spreadsheets()
 
         self.alert_system._process_single_spreadsheet.assert_called_once_with(
             "id_123",
             "projeto_ativo",
         )
 
-        assert self.alert_system.stats["total_spreadsheets"] == 1
+        assert result["total_spreadsheets"] == 1
+
 
     def test_control_worksheets_are_ensured_before_processing(self):
-        self.config.SPREADSHEETS = {
-            "projeto1": "id_123"
-        }
-
-        self.system_repository.get_project_state.return_value = ProjectState(
-            project="projeto1",
-            spreadsheet_id="id_123",
-            active=True,
-        )
+        """Test that control worksheets are ensured before processing."""
+        self.system_repository.get_active_projects.return_value = [
+            ProjectState(
+                project="projeto1",
+                spreadsheet_id="id_123",
+                active=True,
+            )
+        ]
 
         self.alert_system._process_single_spreadsheet = Mock()
 
         self.alert_system.process_all_spreadsheets()
 
         self.system_repository.ensure_control_worksheets.assert_called_once()
+        
 
     def test_completion_alert_is_saved_to_history(self):
         recipients = [
@@ -1364,9 +1395,16 @@ class TestAlertSystemIntegration:
         """Test complete workflow with mocked dependencies"""
         config = Config()
         config.TEST_MODE = True
-        config.SPREADSHEETS = {"teste": "id_teste"}
 
         system_repository = Mock()
+        system_repository.get_active_projects.return_value = [
+            ProjectState(
+                project="teste",
+                spreadsheet_id="id_teste",
+                active=True,
+            )
+        ]
+
         system_repository.get_project_state.return_value = None
         system_repository.alert_was_sent.return_value = False
         

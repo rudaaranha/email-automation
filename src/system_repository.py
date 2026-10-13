@@ -5,6 +5,7 @@ import gspread
 
 from src.config import Config
 from src.models import AlertHistory, AlertType, ProjectState
+from src.google_auth import authenticate_google_sheets
 
 
 class SystemRepository:
@@ -34,28 +35,11 @@ class SystemRepository:
         self.config = config or Config()
         self.client = self._authenticate()
 
+
     def _authenticate(self):
-        """Autentica no Google Sheets usando as credenciais do projeto."""
+        """Autentica no Google Sheets usando as credenciais locais ou ADC."""
+        return authenticate_google_sheets(self.config)
 
-        scope = [
-            "https://spreadsheets.google.com/feeds",
-            "https://www.googleapis.com/auth/drive",
-        ]
-
-        from oauth2client.service_account import ServiceAccountCredentials
-
-        try:
-            creds = ServiceAccountCredentials.from_json_keyfile_name(
-                self.config.PATH_JSON,
-                scope,
-            )
-            return gspread.authorize(creds)
-        except FileNotFoundError:
-            raise Exception(
-                f"Arquivo de credenciais não encontrado: {self.config.PATH_JSON}"
-            )
-        except Exception as e:
-            raise Exception(f"Falha na autenticação: {e}")
 
     def _get_control_spreadsheet(self):
         """Retorna a planilha central de controle."""
@@ -163,6 +147,52 @@ class SystemRepository:
 
         return None
 
+
+    def get_active_projects(self) -> List[ProjectState]:
+        """
+        Return all active projects configured in the control spreadsheet.
+
+        Only projects with active=TRUE are returned.
+        """
+        worksheet = self._get_worksheet(self.PROJECTS_WORKSHEET)
+
+        records = worksheet.get_all_records()
+        active_projects = []
+
+        for record in records:
+            project_name = str(record.get("project", "")).strip()
+            spreadsheet_id = str(record.get("spreadsheet_id", "")).strip()
+            active = str(record.get("active", "")).strip().upper() == "TRUE"
+
+            if not project_name or not spreadsheet_id:
+                continue
+
+            if not active:
+                continue
+
+            completed_at_raw = record.get("completed_at")
+            completed_at = None
+
+            if completed_at_raw:
+                try:
+                    completed_at = datetime.fromisoformat(
+                        str(completed_at_raw)
+                    )
+                except (ValueError, TypeError):
+                    pass
+
+            active_projects.append(
+                ProjectState(
+                    project=project_name,
+                    spreadsheet_id=spreadsheet_id,
+                    active=True,
+                    completed_at=completed_at,
+                )
+            )
+
+        return active_projects
+    
+
     def save_project_state(self, state: ProjectState) -> None:
         """Salva ou atualiza o estado de um projeto."""
 
@@ -185,6 +215,38 @@ class SystemRepository:
                 return
 
         worksheet.append_row(values)
+
+    def sync_completed_projects(self) -> None:
+        """
+        Registra automaticamente a data de conclusão dos projetos
+        que foram desativados manualmente.
+
+        O operador controla apenas o campo `active`.
+        Quando active=FALSE e completed_at está vazio,
+        o sistema registra a data/hora atual.
+        """
+        worksheet = self._get_worksheet(self.PROJECTS_WORKSHEET)
+        records = worksheet.get_all_records()
+
+        for index, row in enumerate(records, start=2):
+            active = str(row.get("active", "")).strip().upper() == "TRUE"
+            completed_at = row.get("completed_at")
+
+            if active or completed_at:
+                continue
+
+            values = [
+                row.get("project", ""),
+                row.get("spreadsheet_id", ""),
+                "FALSE",
+                datetime.now().isoformat(),
+            ]
+
+            worksheet.update(
+                f"A{index}:D{index}",
+                [values],
+            )
+    
 
     def mark_project_completed(self, project: str) -> bool:
         """Marca um projeto como concluído."""
@@ -250,3 +312,35 @@ class SystemRepository:
                 ),
             ]
         )
+
+
+    def sync_completed_projects(self) -> None:
+        """
+        Registra automaticamente a data de conclusão dos projetos
+        que foram desativados manualmente.
+
+        O operador controla apenas o campo `active`.
+        Quando active=FALSE e completed_at está vazio,
+        o sistema registra a data/hora atual.
+        """
+        worksheet = self._get_worksheet(self.PROJECTS_WORKSHEET)
+        records = worksheet.get_all_records()
+
+        for index, row in enumerate(records, start=2):
+            active = str(row.get("active", "")).strip().upper() == "TRUE"
+            completed_at = row.get("completed_at")
+
+            if active or completed_at:
+                continue
+
+            values = [
+                row.get("project", ""),
+                row.get("spreadsheet_id", ""),
+                "FALSE",
+                datetime.now().isoformat(),
+            ]
+
+            worksheet.update(
+                f"A{index}:D{index}",
+                [values],
+            )
