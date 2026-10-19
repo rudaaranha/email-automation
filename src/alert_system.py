@@ -222,7 +222,7 @@ class AlertSystem:
                 responsible_emails.append((name, email))
             else:
                 print(
-                    "No email found for a responsible"
+                    "No email found for a responsible: {name!r}"
             )
 
         if not responsible_emails:
